@@ -1,0 +1,206 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: |
+          if [ "${{ github.ref_name }}" = "staging" ]; then
+            echo "Building for staging environment..."
+            npm run build:staging
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            echo "Building for production environment..."
+            npm run build:production
+          else
+            echo "Unknown branch, building for local environment..."
+            npm run build
+          fi
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      - name: Add EC2 to known hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Check EC2 disk space
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} "
+            # Get available disk space percentage
+            AVAILABLE_SPACE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
+            USED_SPACE=\$((100 - AVAILABLE_SPACE))
+            
+            echo \"Disk usage: \$USED_SPACE% used, \$AVAILABLE_SPACE% available\"
+            
+            if [ \$AVAILABLE_SPACE -lt 10 ]; then
+              echo \"❌ CRITICAL: Only \$AVAILABLE_SPACE% disk space available. Minimum required: 10%\"
+              echo \"Cleaning up temporary files and old logs...\"
+              
+              # Clean up temporary files
+              sudo rm -rf /tmp/*
+              sudo rm -rf /var/tmp/*
+              
+              # Clean up old log files (keep last 7 days)
+              sudo find /var/log -name '*.log' -mtime +7 -delete
+              sudo find /var/log -name '*.gz' -mtime +7 -delete
+              
+                             # Clean up old nginx access logs
+               sudo find /var/log/nginx -name 'access.log.*' -mtime +7 -delete
+               sudo find /var/log/nginx -name 'error.log.*' -mtime +7 -delete
+               
+               # Check space again after cleanup
+              AVAILABLE_SPACE_AFTER=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
+              USED_SPACE_AFTER=\$((100 - AVAILABLE_SPACE_AFTER))
+              
+              echo \"After cleanup: \$USED_SPACE_AFTER% used, \$AVAILABLE_SPACE_AFTER% available\"
+              
+              if [ \$AVAILABLE_SPACE_AFTER -lt 10 ]; then
+                echo \"❌ Still insufficient disk space after cleanup. Deployment failed.\"
+                exit 1
+              else
+                echo \"✅ Disk space sufficient after cleanup. Proceeding with deployment.\"
+              fi
+            else
+              echo \"✅ Sufficient disk space available. Proceeding with deployment.\"
+            fi
+          "
+
+      - name: Deploy to EC2
+        run: |
+          # Determine environment and paths based on branch
+          if [ "${{ github.ref_name }}" = "staging" ]; then
+            ENV="staging"
+            SOURCE_DIR="dist"
+            TARGET_DIR="/var/www/staging-pharmatracker-in"
+            echo "Deploying to staging environment: $TARGET_DIR"
+          elif [ "${{ github.ref_name }}" = "main" ]; then
+            ENV="production"
+            SOURCE_DIR="dist"
+            TARGET_DIR="/var/www/pharmatracker-in"
+            echo "Deploying to production environment: $TARGET_DIR"
+          else
+            echo "Unknown branch, exiting..."
+            exit 1
+          fi
+
+          # Clean target directory
+          ssh ubuntu@${{ secrets.EC2_HOST }} "sudo rm -rf $TARGET_DIR/*"
+
+          # Upload new build files
+          scp -r $SOURCE_DIR/* ubuntu@${{ secrets.EC2_HOST }}:/tmp/build-files/
+
+          # Move files to target directory and set permissions
+          ssh ubuntu@${{ secrets.EC2_HOST }} "
+            sudo mv /tmp/build-files/* $TARGET_DIR/
+            sudo chown -R www-data:www-data $TARGET_DIR
+            sudo chmod -R 755 $TARGET_DIR
+            sudo rm -rf /tmp/build-files
+          "
+
+          echo "Deployment completed for $ENV environment"
+
+      - name: Post-deployment cleanup
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} "
+            echo 'Performing post-deployment cleanup...'
+            
+            # Clean up temporary files
+            sudo rm -rf /tmp/*
+            sudo rm -rf /var/tmp/*
+            
+            # Clean up old log files (keep last 7 days)
+            sudo find /var/log -name '*.log' -mtime +7 -delete 2>/dev/null || true
+            sudo find /var/log -name '*.gz' -mtime +7 -delete 2>/dev/null || true
+            
+                         # Clean up old nginx access logs
+             sudo find /var/log/nginx -name 'access.log.*' -mtime +7 -delete 2>/dev/null || true
+             sudo find /var/log/nginx -name 'error.log.*' -mtime +7 -delete 2>/dev/null || true
+             
+             # Clean up old npm cache if it exists
+            sudo rm -rf /root/.npm 2>/dev/null || true
+            
+            # Clean up old package manager cache
+            sudo apt-get clean 2>/dev/null || true
+            
+            echo 'Post-deployment cleanup completed'
+          "
+
+      - name: Verify nginx status
+        run: |
+          ssh ubuntu@${{ secrets.EC2_HOST }} "
+            # Check if nginx is running
+            if sudo systemctl is-active --quiet nginx; then
+              echo 'Nginx is running'
+            else
+              echo 'Nginx is not running, starting it...'
+              sudo systemctl start nginx
+              sudo systemctl enable nginx
+              echo 'Nginx started and enabled'
+            fi
+            
+            # Verify nginx configuration
+            if sudo nginx -t; then
+              echo 'Nginx configuration is valid'
+              # Reload nginx to ensure new files are served
+              sudo systemctl reload nginx
+              echo 'Nginx reloaded successfully'
+            else
+              echo 'Nginx configuration has errors'
+              exit 1
+            fi
+          "
+
+      - name: Deployment Summary
+        run: |
+          echo "🚀 Deployment Summary"
+          echo "===================="
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Environment: ${{ github.ref_name == 'main' && 'Production' || 'Staging' }}"
+          echo "Target: ${{ github.ref_name == 'main' && 'pharmatracker.in' || 'staging.pharmatracker.in' }}"
+          echo "EC2 Host: ${{ secrets.EC2_HOST }}"
+          echo "Deployment completed successfully! 🎉"
+
+          # Get final disk space status
+          echo ""
+          echo "💾 EC2 Disk Space Status:"
+          echo "------------------------"
+          ssh ubuntu@${{ secrets.EC2_HOST }} "
+            AVAILABLE_SPACE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
+            USED_SPACE=\$((100 - AVAILABLE_SPACE))
+            TOTAL_SIZE=\$(df -h / | tail -1 | awk '{print \$2}')
+            USED_SIZE=\$(df -h / | tail -1 | awk '{print \$3}')
+            AVAILABLE_SIZE=\$(df -h / | tail -1 | awk '{print \$4}')
+            
+            echo \"Total Disk: \$TOTAL_SIZE\"
+            echo \"Used: \$USED_SIZE (\$USED_SPACE%)\"
+            echo \"Available: \$AVAILABLE_SIZE (\$AVAILABLE_SPACE%)\"
+            
+            if [ \$AVAILABLE_SPACE -lt 15 ]; then
+              echo \"⚠️  Warning: Disk space is getting low!\"
+            elif [ \$AVAILABLE_SPACE -lt 10 ]; then
+              echo \"🚨 Critical: Disk space is very low!\"
+            else
+              echo \"✅ Disk space is healthy\"
+            fi
+          "
