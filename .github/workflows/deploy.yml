@@ -55,32 +55,8 @@ jobs:
             
             if [ \$AVAILABLE_SPACE -lt 10 ]; then
               echo \"❌ CRITICAL: Only \$AVAILABLE_SPACE% disk space available. Minimum required: 10%\"
-              echo \"Cleaning up temporary files and old logs...\"
-              
-              # Clean up temporary files
-              sudo rm -rf /tmp/*
-              sudo rm -rf /var/tmp/*
-              
-              # Clean up old log files (keep last 7 days)
-              sudo find /var/log -name '*.log' -mtime +7 -delete
-              sudo find /var/log -name '*.gz' -mtime +7 -delete
-              
-                             # Clean up old nginx access logs
-               sudo find /var/log/nginx -name 'access.log.*' -mtime +7 -delete
-               sudo find /var/log/nginx -name 'error.log.*' -mtime +7 -delete
-               
-               # Check space again after cleanup
-              AVAILABLE_SPACE_AFTER=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
-              USED_SPACE_AFTER=\$((100 - AVAILABLE_SPACE_AFTER))
-              
-              echo \"After cleanup: \$USED_SPACE_AFTER% used, \$AVAILABLE_SPACE_AFTER% available\"
-              
-              if [ \$AVAILABLE_SPACE_AFTER -lt 10 ]; then
-                echo \"❌ Still insufficient disk space after cleanup. Deployment failed.\"
-                exit 1
-              else
-                echo \"✅ Disk space sufficient after cleanup. Proceeding with deployment.\"
-              fi
+              echo \"Deployment failed due to insufficient disk space.\"
+              exit 1
             else
               echo \"✅ Sufficient disk space available. Proceeding with deployment.\"
             fi
@@ -146,17 +122,35 @@ jobs:
             
             # Clean up old log files (keep last 7 days)
             sudo find /var/log -name '*.log' -mtime +7 -delete 2>/dev/null || true
-            sudo find /var/log -name '*.gz' -mtime +7 -delete 2>/dev/null || true
+            sudo find /var/log/nginx -name 'access.log.*' -mtime +7 -delete 2>/dev/null || true
+            sudo find /var/log/nginx -name 'error.log.*' -mtime +7 -delete 2>/dev/null || true
             
-                         # Clean up old nginx access logs
-             sudo find /var/log/nginx -name 'access.log.*' -mtime +7 -delete 2>/dev/null || true
-             sudo find /var/log/nginx -name 'error.log.*' -mtime +7 -delete 2>/dev/null || true
-             
-             # Clean up old npm cache if it exists
+            # Clean up old npm cache if it exists
             sudo rm -rf /root/.npm 2>/dev/null || true
             
             # Clean up old package manager cache
             sudo apt-get clean 2>/dev/null || true
+            
+            # Show disk space after cleanup
+            echo ''
+            echo '💾 Disk space after cleanup:'
+            AVAILABLE_SPACE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
+            USED_SPACE=\$((100 - AVAILABLE_SPACE))
+            TOTAL_SIZE=\$(df -h / | tail -1 | awk '{print \$2}')
+            USED_SIZE=\$(df -h / | tail -1 | awk '{print \$3}')
+            AVAILABLE_SIZE=\$(df -h / | tail -1 | awk '{print \$4}')
+            
+            echo \"Total Disk: \$TOTAL_SIZE\"
+            echo \"Used: \$USED_SIZE (\$USED_SPACE%)\"
+            echo \"Available: \$AVAILABLE_SIZE (\$AVAILABLE_SPACE%)\"
+            
+            if [ \$AVAILABLE_SPACE -lt 15 ]; then
+              echo \"⚠️  Warning: Disk space is getting low!\"
+            elif [ \$AVAILABLE_SPACE -lt 10 ]; then
+              echo \"🚨 Critical: Disk space is very low!\"
+            else
+              echo \"✅ Disk space is healthy\"
+            fi
             
             echo 'Post-deployment cleanup completed'
           "
@@ -195,27 +189,3 @@ jobs:
           echo "Target: ${{ github.ref_name == 'main' && 'pharmatracker.in' || 'staging.pharmatracker.in' }}"
           echo "EC2 Host: ${{ secrets.EC2_HOST }}"
           echo "Deployment completed successfully! 🎉"
-
-          # Get final disk space status
-          echo ""
-          echo "💾 EC2 Disk Space Status:"
-          echo "------------------------"
-          ssh ubuntu@${{ secrets.EC2_HOST }} "
-            AVAILABLE_SPACE=\$(df / | tail -1 | awk '{print \$5}' | sed 's/%//')
-            USED_SPACE=\$((100 - AVAILABLE_SPACE))
-            TOTAL_SIZE=\$(df -h / | tail -1 | awk '{print \$2}')
-            USED_SIZE=\$(df -h / | tail -1 | awk '{print \$3}')
-            AVAILABLE_SIZE=\$(df -h / | tail -1 | awk '{print \$4}')
-            
-            echo \"Total Disk: \$TOTAL_SIZE\"
-            echo \"Used: \$USED_SIZE (\$USED_SPACE%)\"
-            echo \"Available: \$AVAILABLE_SIZE (\$AVAILABLE_SPACE%)\"
-            
-            if [ \$AVAILABLE_SPACE -lt 15 ]; then
-              echo \"⚠️  Warning: Disk space is getting low!\"
-            elif [ \$AVAILABLE_SPACE -lt 10 ]; then
-              echo \"🚨 Critical: Disk space is very low!\"
-            else
-              echo \"✅ Disk space is healthy\"
-            fi
-          "
