@@ -152,7 +152,7 @@ jobs:
               echo \"✅ Disk space is healthy\"
             fi
             
-            echo 'Post-deployment cleanup completed'
+            echo 'Post-deployment cleanup completed.'
           "
 
       - name: Verify nginx status
