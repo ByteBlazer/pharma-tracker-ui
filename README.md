@@ -1,4 +1,4 @@
-# Pharma Tracker UI
+#Pharma Tracker UI
 
 A React application built with Vite for tracking pharmaceutical data, featuring environment-specific configurations for staging and production.
 
@@ -21,6 +21,7 @@ This project supports three environments:
 ### Environment Variables
 
 Each environment file contains:
+
 - `VITE_API_BASE_URL` - Base URL for the RESTful API server
 - `VITE_ENV` - Environment identifier
 
@@ -42,36 +43,45 @@ Each environment file contains:
 ### Development
 
 #### Local Development
+
 ```bash
 npm run dev
 ```
+
 Uses `env.local` configuration (defaults to `http://localhost:3000`)
 
 #### Staging Development
+
 ```bash
 npm run dev:staging
 ```
+
 Uses `env.staging` configuration
 
 #### Production Development
+
 ```bash
 npm run dev:production
 ```
+
 Uses `env.production` configuration
 
 ### Building
 
 #### Local Build
+
 ```bash
 npm run build
 ```
 
 #### Staging Build
+
 ```bash
 npm run build:staging
 ```
 
 #### Production Build
+
 ```bash
 npm run build:production
 ```
@@ -79,16 +89,19 @@ npm run build:production
 ### Preview
 
 #### Local Preview
+
 ```bash
 npm run preview
 ```
 
 #### Staging Preview
+
 ```bash
 npm run preview:staging
 ```
 
 #### Production Preview
+
 ```bash
 npm run preview:production
 ```
@@ -122,6 +135,7 @@ The application automatically configures API communication based on the selected
 ## Environment Indicators
 
 The UI displays environment information including:
+
 - Current environment
 - API base URL
 - Debug mode status
@@ -151,6 +165,7 @@ The UI displays environment information including:
 ### Modifying API Configuration
 
 Edit `src/config/environment.js` to modify:
+
 - API timeout settings
 - Default headers
 - Feature flags
