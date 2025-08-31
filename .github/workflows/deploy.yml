@@ -112,10 +112,25 @@ jobs:
 
           # Move files to target directory and set permissions
           ssh ubuntu@${{ secrets.EC2_HOST }} "
-            sudo mv /tmp/build-files/* $TARGET_DIR/
-            sudo chown -R www-data:www-data $TARGET_DIR
-            sudo chmod -R 755 $TARGET_DIR
+            # Check if target directory exists, create if not
+            if [ ! -d \"$TARGET_DIR\" ]; then
+              echo \"Creating target directory: $TARGET_DIR\"
+              sudo mkdir -p \"$TARGET_DIR\"
+            fi
+            
+            # Move files and set permissions
+            sudo mv /tmp/build-files/* \"$TARGET_DIR/\"
+            sudo chown -R www-data:www-data \"$TARGET_DIR\"
+            sudo chmod -R 755 \"$TARGET_DIR\"
             sudo rm -rf /tmp/build-files
+            
+            # Verify deployment was successful
+            if [ -f \"$TARGET_DIR/index.html\" ]; then
+              echo \"✅ Deployment verification successful\"
+            else
+              echo \"❌ Deployment verification failed - index.html not found\"
+              exit 1
+            fi
           "
 
           echo "Deployment completed for $ENV environment"
