@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { StatusCodes } from "http-status-codes";
 import { GlobalContext } from "../GlobalContextProvider";
 import { useNavigate } from "react-router";
+import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 
 const defaultState = {
   loginPhoneNumber: "",
@@ -135,16 +136,13 @@ function Login() {
 
   const generateOtpMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(
-        "http://localhost:3000/api/auth/generate-otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ mobile: state.loginPhoneNumber }),
-        }
-      );
+      const response = await fetch(API_ENDPOINTS.GENERATE_OTP, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ mobile: state.loginPhoneNumber }),
+      });
 
       if (response.status !== StatusCodes.OK) {
         // Create error with status code for proper handling
@@ -172,19 +170,16 @@ function Login() {
 
   const validateOtpMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch(
-        "http://localhost:3000/api/auth/validate-otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            mobile: state.loginPhoneNumber,
-            otp: state.otp,
-          }),
-        }
-      );
+      const response = await fetch(API_ENDPOINTS.VALIDATE_OTP, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          mobile: state.loginPhoneNumber,
+          otp: state.otp,
+        }),
+      });
 
       if (response.status !== StatusCodes.OK) {
         // Create error with status code for proper handling
@@ -197,7 +192,7 @@ function Login() {
     },
     onSuccess: async (response) => {
       const data = await response.json();
-      console.log("data.access_token: ", data.access_token);
+
       setJwtToken(data.access_token);
       // Navigation will be handled by useEffect when token becomes valid
     },
