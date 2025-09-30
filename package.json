@@ -16,6 +16,9 @@
     "preview:production": "vite preview --mode production"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.90.2",
+    "http-status-codes": "^2.3.0",
+    "jwt-decode": "^4.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-router": "^7.9.3",
