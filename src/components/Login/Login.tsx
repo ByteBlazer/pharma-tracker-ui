@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import { GlobalContext } from "../GlobalContextProvider";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 import "./Login.css";
+import { useScreen } from "usehooks-ts";
 
 const defaultState = {
   loginPhoneNumber: "",
@@ -114,6 +115,8 @@ function Login({ appName }: { appName: string }) {
   const { jwtToken, setJwtToken, isTokenValid } = useContext(GlobalContext);
   const [state, dispatch] = useReducer(reducer, defaultState);
   const navigate = useNavigate();
+  const { width } = useScreen();
+  const isMobile = width < 768;
 
   // Navigate to home when token becomes valid
   useEffect(() => {
@@ -261,8 +264,16 @@ function Login({ appName }: { appName: string }) {
         }
       />
 
-      <div className="login-component-outer-container">
-        <Paper elevation={5} className="login-component-container">
+      <div
+        className={`login-component-outer-container ${
+          isMobile ? "tile-bg-image" : "full-bg-image"
+        }`}
+      >
+        <Paper
+          elevation={8}
+          sx={{ borderRadius: "1rem" }}
+          className="login-component-container"
+        >
           {!state.otpRequested && !state.validateOtpRequested && (
             <>
               <div className="paper-title">Login to {appName}</div>

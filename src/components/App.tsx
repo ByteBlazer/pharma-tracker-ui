@@ -4,6 +4,8 @@ import TripDashboard from "./TripDashboard/TripDashboard";
 import Home from "./Home/Home";
 import Login from "./Login/Login";
 import ProtectedRoute from "./ProtectedRoute/ProtectedRoute";
+import { useContext } from "react";
+import { GlobalContext } from "./GlobalContextProvider";
 
 import "./App.css";
 import { GlobalContextProvider } from "./GlobalContextProvider";
@@ -11,7 +13,17 @@ import { GlobalContextProvider } from "./GlobalContextProvider";
 function App() {
   return (
     <GlobalContextProvider>
-      <div>NavBar</div>
+      <AppContent />
+    </GlobalContextProvider>
+  );
+}
+
+function AppContent() {
+  const { loggedInUser } = useContext(GlobalContext);
+
+  return (
+    <>
+      {loggedInUser && <div>NavBar</div>}
       <BrowserRouter>
         <Routes>
           <Route
@@ -45,7 +57,7 @@ function App() {
           />
         </Routes>
       </BrowserRouter>
-    </GlobalContextProvider>
+    </>
   );
 }
 
