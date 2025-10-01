@@ -237,12 +237,11 @@ function Login({ appName }: { appName: string }) {
     const value = e.target.value.replace(/[^0-9]/g, ""); // Remove non-digits
     if (value.length === 6) {
       validateOtpMutation.mutate();
-    } else {
-      dispatch({
-        type: actionTypes.SET_OTP,
-        payload: value,
-      });
     }
+    dispatch({
+      type: actionTypes.SET_OTP,
+      payload: value,
+    });
   };
 
   const navigateToHome = () => {
