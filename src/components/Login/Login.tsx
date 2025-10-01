@@ -139,7 +139,7 @@ function Login({ appName }: { appName: string }) {
         payload: lastUsedMobileNumber,
       });
     }
-  }, [lastUsedMobileNumber, state.loginPhoneNumber]);
+  }, [lastUsedMobileNumber]);
   useEffect(() => {
     if (state.otpRequested) {
       const interval = setInterval(() => {
