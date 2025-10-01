@@ -8,7 +8,7 @@ import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import { GlobalContext } from "../GlobalContextProvider";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 import "./Login.css";
-import { useScreen } from "usehooks-ts";
+import { useScreen, useLocalStorage } from "usehooks-ts";
 
 const defaultState = {
   loginPhoneNumber: "",
@@ -118,12 +118,28 @@ function Login({ appName }: { appName: string }) {
   const { width } = useScreen();
   const isMobile = width < 768;
 
+  // Local storage for last used mobile number
+  const [lastUsedMobileNumber, setLastUsedMobileNumber] = useLocalStorage(
+    "lastUsedLoginMobileNumber",
+    ""
+  );
+
   // Navigate to home when token becomes valid
   useEffect(() => {
     if (jwtToken && isTokenValid) {
       navigateToHome();
     }
   }, [jwtToken, isTokenValid]);
+
+  // Populate mobile number field with last used number on component load
+  useEffect(() => {
+    if (lastUsedMobileNumber && !state.loginPhoneNumber) {
+      dispatch({
+        type: actionTypes.SET_LOGIN_PHONE_NUMBER,
+        payload: lastUsedMobileNumber,
+      });
+    }
+  }, [lastUsedMobileNumber, state.loginPhoneNumber]);
   useEffect(() => {
     if (state.otpRequested) {
       const interval = setInterval(() => {
@@ -203,6 +219,8 @@ function Login({ appName }: { appName: string }) {
       const data = await response.json();
 
       setJwtToken(data.access_token);
+      // Store the mobile number in localStorage for future logins
+      setLastUsedMobileNumber(state.loginPhoneNumber);
       // Navigation will be handled by useEffect when token becomes valid
     },
     onError: (error) => {
