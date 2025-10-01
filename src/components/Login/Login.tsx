@@ -6,6 +6,7 @@ import { useContext, useEffect, useReducer } from "react";
 import { useNavigate } from "react-router";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import { GlobalContext } from "../GlobalContextProvider";
+import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 import "./Login.css";
 
 const defaultState = {
@@ -250,6 +251,15 @@ function Login({ appName }: { appName: string }) {
 
   return (
     <>
+      <ModalInfiniteSpinner
+        showModal={
+          validateOtpMutation.isPending || generateOtpMutation.isPending
+        }
+        title={
+          generateOtpMutation.isPending ? "Sending OTP..." : "Validating OTP..."
+        }
+      />
+
       <div className="login-component-outer-container">
         <Paper elevation={5} className="login-component-container">
           {!state.otpRequested && !state.validateOtpRequested && (
