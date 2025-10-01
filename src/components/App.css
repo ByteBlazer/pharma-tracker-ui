@@ -1,102 +1,20 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+:root {
+  --font-family: "Inter", "Roboto", "-apple-system", "BlinkMacSystemFont",
+    '"Segoe UI"', "Arial", "sans-serif";
+  --primary-color: #1976d2;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--font-family);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+html {
+  font-family: var(--font-family);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
-/* Environment Information Styles */
-.environment-info {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1.5rem;
-  margin: 2rem 0;
-  border: 1px solid #e9ecef;
-}
-
-.environment-info h2 {
-  color: #495057;
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
-}
-
-.env-details {
-  text-align: left;
-  max-width: 500px;
-  margin: 0 auto 1rem;
-}
-
-.env-details p {
-  margin: 0.5rem 0;
-  padding: 0.5rem;
-  background: white;
-  border-radius: 4px;
-  border-left: 3px solid #007bff;
-}
-
-.env-badges {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.badge {
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: bold;
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.badge.staging {
-  background: #ffc107;
-  color: #212529;
-}
-
-.badge.production {
-  background: #dc3545;
-  color: white;
-}
-
-.badge.local {
-  background: #28a745;
-  color: white;
+body {
+  font-family: var(--font-family);
 }
