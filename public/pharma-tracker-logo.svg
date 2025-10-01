@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Red top half -->
+  <path d="M 35 50 L 35 30 Q 35 15, 50 15 Q 65 15, 65 30 L 65 50 Z" fill="#dc004e"/>
+  
+  <!-- Blue bottom half -->
+  <path d="M 35 50 L 35 70 Q 35 85, 50 85 Q 65 85, 65 70 L 65 50 Z" fill="#1976d2"/>
+  
+  <!-- Center dividing line -->
+  <line x1="35" y1="50" x2="65" y2="50" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Glossy highlight on red half -->
+  <ellipse cx="55" cy="30" rx="6" ry="10" fill="#ffffff" opacity="0.3"/>
+  
+  <!-- Glossy highlight on blue half -->
+  <ellipse cx="55" cy="65" rx="6" ry="10" fill="#ffffff" opacity="0.3"/>
+</svg>

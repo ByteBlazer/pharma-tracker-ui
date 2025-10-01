@@ -14,7 +14,10 @@ function App() {
       <div>NavBar</div>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route
+            path="/login"
+            element={<Login appName="Pharma Tracker Web" />}
+          />
           <Route
             path="/"
             element={

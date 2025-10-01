@@ -1,9 +1,12 @@
-import { useContext, useEffect, useReducer } from "react";
+import { Apps, ArrowBack, PhoneAndroid, Refresh } from "@mui/icons-material";
+import { Button, InputAdornment, Paper, TextField } from "@mui/material";
 import { useMutation } from "@tanstack/react-query";
 import { StatusCodes } from "http-status-codes";
-import { GlobalContext } from "../GlobalContextProvider";
+import { useContext, useEffect, useReducer } from "react";
 import { useNavigate } from "react-router";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
+import { GlobalContext } from "../GlobalContextProvider";
+import "./Login.css";
 
 const defaultState = {
   loginPhoneNumber: "",
@@ -12,7 +15,6 @@ const defaultState = {
   phoneNumberNotRegistered: false,
   otpGenerationError: false,
   wrongOtp: false,
-  incorrectLengthOtp: true,
   invalidCharactersOtp: false,
   otp: "",
   otpRequested: false,
@@ -22,6 +24,8 @@ const defaultState = {
   counterToResendOtp: 0,
   invalidJwtToken: false,
 };
+
+const OTP_COUNTER = 10;
 
 const actionTypes = {
   SET_LOGIN_PHONE_NUMBER: "SET_LOGIN_PHONE_NUMBER",
@@ -66,7 +70,7 @@ const reducer = (state: any, action: any) => {
         otpRequested: true,
         otp: "",
         validateOtpRequested: false,
-        counterToResendOtp: 10,
+        counterToResendOtp: OTP_COUNTER,
       };
     case actionTypes.BACK_TO_PHONE_NUMBER:
       return {
@@ -80,7 +84,6 @@ const reducer = (state: any, action: any) => {
       return {
         ...state,
         otp: action.payload,
-        incorrectLengthOtp: action.payload.length !== 6,
         invalidCharactersOtp:
           action.payload === "" ? false : !/^[0-9]+$/.test(action.payload),
       };
@@ -91,6 +94,7 @@ const reducer = (state: any, action: any) => {
         otpRequested: false,
         counterToResendOtp: 0,
       };
+
     case actionTypes.VALIDATE_OTP_SUCCESS:
       return { ...state, validateOtpRequested: false };
     case actionTypes.WRONG_OTP:
@@ -104,7 +108,7 @@ const reducer = (state: any, action: any) => {
   }
 };
 
-function Login() {
+function Login({ appName }: { appName: string }) {
   const { jwtToken, setJwtToken, isTokenValid } = useContext(GlobalContext);
   const [state, dispatch] = useReducer(reducer, defaultState);
   const navigate = useNavigate();
@@ -197,15 +201,48 @@ function Login() {
       // Navigation will be handled by useEffect when token becomes valid
     },
     onError: (error) => {
-      if ((error as any).status === StatusCodes.BAD_REQUEST) {
+      if ((error as any).status === StatusCodes.UNAUTHORIZED) {
         dispatch({ type: actionTypes.WRONG_OTP });
       } else {
         dispatch({ type: actionTypes.VALIDATE_OTP_FAILURE });
       }
     },
   });
-  const handleValidateOtpButtonClick = () => {
-    validateOtpMutation.mutate();
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, ""); // Remove non-digits
+    dispatch({
+      type: actionTypes.SET_LOGIN_PHONE_NUMBER,
+      payload: value,
+    });
+  };
+
+  const handlePhoneKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      // Prevent default form submission
+      e.preventDefault();
+
+      // Only trigger if phone number is valid and not already loading
+      if (
+        !state.incorrectLengthPhoneNumber &&
+        !state.invalidCharactersPhoneNumber &&
+        !generateOtpMutation.isPending
+      ) {
+        handleGetOtpButtonClick();
+      }
+    }
+  };
+
+  const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, ""); // Remove non-digits
+    if (value.length === 6) {
+      validateOtpMutation.mutate();
+    } else {
+      dispatch({
+        type: actionTypes.SET_OTP,
+        payload: value,
+      });
+    }
   };
 
   const navigateToHome = () => {
@@ -214,66 +251,153 @@ function Login() {
 
   return (
     <>
-      <h1>Login </h1>
-
-      {!state.otpRequested && !state.validateOtpRequested && (
-        <>
-          {state.invalidCharactersPhoneNumber && <p>Only digits are allowed</p>}
-          {state.otpGenerationError && <p>Failed to generate OTP</p>}
-          {state.phoneNumberNotRegistered && <p>Phone number not registered</p>}
-          <input
-            type="text"
-            maxLength={10}
-            value={state.loginPhoneNumber}
-            onChange={(e) =>
-              dispatch({
-                type: actionTypes.SET_LOGIN_PHONE_NUMBER,
-                payload: e.target.value,
-              })
-            }
-          />
-          <button
-            onClick={handleGetOtpButtonClick}
-            disabled={
-              state.incorrectLengthPhoneNumber ||
-              state.invalidCharactersPhoneNumber ||
-              generateOtpMutation.isPending
-            }
-          >
-            {generateOtpMutation.isPending ? "Sending..." : "Get OTP"}
-          </button>
-        </>
-      )}
-      {(state.otpRequested || state.validateOtpRequested) && (
-        <>
-          {state.invalidCharactersOtp && <p>Invalid characters</p>}
-          {state.wrongOtp && <p>Wrong OTP</p>}
-          {state.validateOtpFailure && <p>Failed to validate OTP</p>}
-          {state.invalidJwtToken && <p>Invalid JWT token</p>}
-          <input
-            type="text"
-            value={state.otp}
-            maxLength={6}
-            onChange={(e) =>
-              dispatch({ type: actionTypes.SET_OTP, payload: e.target.value })
-            }
-          />
-          <button
-            onClick={() => dispatch({ type: actionTypes.BACK_TO_PHONE_NUMBER })}
-          >
-            Back
-          </button>
-          <button
-            onClick={handleValidateOtpButtonClick}
-            disabled={state.incorrectLengthOtp || state.invalidCharactersOtp}
-          >
-            Validate OTP
-          </button>
-          {state.otpRequested && state.counterToResendOtp > 0 && (
-            <p>Resend OTP in {state.counterToResendOtp} seconds</p>
+      <div className="login-component-outer-container">
+        <Paper elevation={5} className="login-component-container">
+          {!state.otpRequested && !state.validateOtpRequested && (
+            <>
+              <div className="paper-title">Login to {appName}</div>
+              <div>
+                <TextField
+                  fullWidth
+                  autoFocus
+                  autoComplete="off"
+                  size="medium"
+                  type="tel"
+                  error={
+                    state.invalidCharactersPhoneNumber ||
+                    state.phoneNumberNotRegistered ||
+                    state.otpGenerationError
+                  }
+                  value={state.loginPhoneNumber}
+                  id="outlined-error"
+                  label="Mobile Number"
+                  placeholder="10 digits"
+                  helperText={
+                    state.invalidCharactersPhoneNumber
+                      ? "Only digits are allowed"
+                      : state.phoneNumberNotRegistered
+                      ? "Mobile number not registered"
+                      : state.otpGenerationError
+                      ? "Failed to generate OTP"
+                      : " "
+                  }
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <PhoneAndroid />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: {
+                      maxLength: 10,
+                    },
+                  }}
+                  onChange={handlePhoneChange}
+                  onKeyDown={handlePhoneKeyDown}
+                />
+              </div>
+              <div>
+                <Button
+                  fullWidth
+                  size="large"
+                  onClick={handleGetOtpButtonClick}
+                  loading={generateOtpMutation.isPending}
+                  loadingPosition="end"
+                  variant="contained"
+                  disabled={
+                    state.incorrectLengthPhoneNumber ||
+                    state.invalidCharactersPhoneNumber ||
+                    generateOtpMutation.isPending
+                  }
+                >
+                  Get OTP
+                </Button>
+              </div>
+            </>
           )}
-        </>
-      )}
+          {(state.otpRequested || state.validateOtpRequested) && (
+            <>
+              <div className="paper-title">
+                Verify OTP sent to {state.loginPhoneNumber}
+              </div>
+              <div>
+                <TextField
+                  autoFocus
+                  fullWidth
+                  autoComplete="off"
+                  size="medium"
+                  type="tel"
+                  error={
+                    state.invalidCharactersOtp ||
+                    state.wrongOtp ||
+                    state.validateOtpFailure ||
+                    state.invalidJwtToken
+                  }
+                  value={state.otp}
+                  id="outlined-error"
+                  label="OTP"
+                  placeholder="6 digits"
+                  helperText={
+                    state.invalidCharactersOtp
+                      ? "Digits Only"
+                      : state.wrongOtp
+                      ? "Wrong OTP Entered"
+                      : state.validateOtpFailure
+                      ? "Failed to validate OTP."
+                      : state.invalidJwtToken
+                      ? "Invalid Authentication Token"
+                      : " "
+                  }
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Apps />
+                        </InputAdornment>
+                      ),
+                    },
+                    htmlInput: {
+                      maxLength: 6,
+                    },
+                  }}
+                  onChange={handleOtpChange}
+                />
+              </div>
+              <div className="otp-button-group-container">
+                <Button
+                  size="large"
+                  onClick={() =>
+                    dispatch({ type: actionTypes.BACK_TO_PHONE_NUMBER })
+                  }
+                  variant="contained"
+                  startIcon={<ArrowBack />}
+                >
+                  Back
+                </Button>
+                <Button
+                  size="large"
+                  onClick={handleGetOtpButtonClick}
+                  variant="contained"
+                  disabled={state.counterToResendOtp > 0}
+                  startIcon={<Refresh />}
+                >
+                  Resend OTP
+                </Button>
+              </div>
+              <div className="otp-countdown-text-container">
+                {state.otpRequested && state.counterToResendOtp > 0 ? (
+                  <span className="otp-countdown-text">
+                    Resend OTP in {state.counterToResendOtp} seconds
+                  </span>
+                ) : (
+                  <div>&nbsp;</div>
+                )}
+              </div>
+            </>
+          )}
+        </Paper>
+      </div>
     </>
   );
 }
