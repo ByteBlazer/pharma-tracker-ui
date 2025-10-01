@@ -1,15 +1,15 @@
 import { Box, CircularProgress, Modal } from "@mui/material";
 
 function ModalInfiniteSpinner({
-  showModal,
-  title,
+  condition,
+  title = "Please wait...",
 }: {
-  showModal: boolean;
-  title: string;
+  condition: boolean;
+  title?: string;
 }) {
   return (
     <Modal
-      open={showModal}
+      open={condition}
       sx={{
         display: "flex",
         alignItems: "center",

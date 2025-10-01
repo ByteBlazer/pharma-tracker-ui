@@ -8,6 +8,7 @@ import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import { GlobalContext } from "../GlobalContextProvider";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 import "./Login.css";
+import { useScreen, useLocalStorage } from "usehooks-ts";
 
 const defaultState = {
   loginPhoneNumber: "",
@@ -87,6 +88,7 @@ const reducer = (state: any, action: any) => {
         otp: action.payload,
         invalidCharactersOtp:
           action.payload === "" ? false : !/^[0-9]+$/.test(action.payload),
+        wrongOtp: false, // Clear error when user types
       };
     case actionTypes.VALIDATE_OTP:
       return {
@@ -113,6 +115,14 @@ function Login({ appName }: { appName: string }) {
   const { jwtToken, setJwtToken, isTokenValid } = useContext(GlobalContext);
   const [state, dispatch] = useReducer(reducer, defaultState);
   const navigate = useNavigate();
+  const { width } = useScreen();
+  const isMobile = width < 768;
+
+  // Local storage for last used mobile number
+  const [lastUsedMobileNumber, setLastUsedMobileNumber] = useLocalStorage(
+    "lastUsedLoginMobileNumber",
+    ""
+  );
 
   // Navigate to home when token becomes valid
   useEffect(() => {
@@ -120,6 +130,16 @@ function Login({ appName }: { appName: string }) {
       navigateToHome();
     }
   }, [jwtToken, isTokenValid]);
+
+  // Populate mobile number field with last used number on component load
+  useEffect(() => {
+    if (lastUsedMobileNumber && !state.loginPhoneNumber) {
+      dispatch({
+        type: actionTypes.SET_LOGIN_PHONE_NUMBER,
+        payload: lastUsedMobileNumber,
+      });
+    }
+  }, [lastUsedMobileNumber, state.loginPhoneNumber]);
   useEffect(() => {
     if (state.otpRequested) {
       const interval = setInterval(() => {
@@ -199,6 +219,8 @@ function Login({ appName }: { appName: string }) {
       const data = await response.json();
 
       setJwtToken(data.access_token);
+      // Store the mobile number in localStorage for future logins
+      setLastUsedMobileNumber(state.loginPhoneNumber);
       // Navigation will be handled by useEffect when token becomes valid
     },
     onError: (error) => {
@@ -252,7 +274,7 @@ function Login({ appName }: { appName: string }) {
   return (
     <>
       <ModalInfiniteSpinner
-        showModal={
+        condition={
           validateOtpMutation.isPending || generateOtpMutation.isPending
         }
         title={
@@ -260,8 +282,16 @@ function Login({ appName }: { appName: string }) {
         }
       />
 
-      <div className="login-component-outer-container">
-        <Paper elevation={5} className="login-component-container">
+      <div
+        className={`login-component-outer-container ${
+          isMobile ? "tile-bg-image" : "full-bg-image"
+        }`}
+      >
+        <Paper
+          elevation={8}
+          sx={{ borderRadius: "1rem" }}
+          className="login-component-container"
+        >
           {!state.otpRequested && !state.validateOtpRequested && (
             <>
               <div className="paper-title">Login to {appName}</div>

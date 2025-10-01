@@ -2,7 +2,19 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 80vh;
+  height: 100vh;
+  background-size: cover;
+  background-position: center;
+}
+.full-bg-image {
+  background-image: url("/login-background.jpg");
+  background-repeat: no-repeat;
+  justify-content: flex-end;
+  padding-right: 15rem;
+}
+.tile-bg-image {
+  background-image: url("/login-background-tile.jpg");
+  background-repeat: repeat;
 }
 .login-component-container {
   display: flex;
