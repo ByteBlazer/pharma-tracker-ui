@@ -87,6 +87,7 @@ const reducer = (state: any, action: any) => {
         otp: action.payload,
         invalidCharactersOtp:
           action.payload === "" ? false : !/^[0-9]+$/.test(action.payload),
+        wrongOtp: false, // Clear error when user types
       };
     case actionTypes.VALIDATE_OTP:
       return {
@@ -252,7 +253,7 @@ function Login({ appName }: { appName: string }) {
   return (
     <>
       <ModalInfiniteSpinner
-        showModal={
+        condition={
           validateOtpMutation.isPending || generateOtpMutation.isPending
         }
         title={
