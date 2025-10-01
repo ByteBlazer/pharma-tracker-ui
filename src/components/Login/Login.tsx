@@ -201,7 +201,7 @@ function Login({ appName }: { appName: string }) {
       // Navigation will be handled by useEffect when token becomes valid
     },
     onError: (error) => {
-      if ((error as any).status === StatusCodes.BAD_REQUEST) {
+      if ((error as any).status === StatusCodes.UNAUTHORIZED) {
         dispatch({ type: actionTypes.WRONG_OTP });
       } else {
         dispatch({ type: actionTypes.VALIDATE_OTP_FAILURE });
