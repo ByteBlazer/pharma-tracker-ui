@@ -74,7 +74,7 @@ function Home() {
           <CardContent sx={{ textAlign: "center", p: 3 }}>
             <Avatar
               sx={{
-                bgcolor: "success.main",
+                bgcolor: "primary.main",
                 width: 56,
                 height: 56,
                 mx: "auto",
@@ -86,7 +86,7 @@ function Home() {
             <Typography variant="h6" gutterBottom>
               Phone Number
             </Typography>
-            <Typography variant="h5" color="success.main" fontWeight="bold">
+            <Typography variant="h5" color="primary" fontWeight="bold">
               {loggedInUser.mobile}
             </Typography>
           </CardContent>
@@ -97,7 +97,7 @@ function Home() {
           <CardContent sx={{ textAlign: "center", p: 3 }}>
             <Avatar
               sx={{
-                bgcolor: "info.main",
+                bgcolor: "primary.main",
                 width: 56,
                 height: 56,
                 mx: "auto",
@@ -109,7 +109,7 @@ function Home() {
             <Typography variant="h6" gutterBottom>
               Base Location
             </Typography>
-            <Typography variant="h5" color="info.main" fontWeight="bold">
+            <Typography variant="h5" color="primary" fontWeight="bold">
               {loggedInUser.baseLocationName}
             </Typography>
           </CardContent>
