@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
-  <!-- Red top half -->
-  <path d="M 35 50 L 35 30 Q 35 15, 50 15 Q 65 15, 65 30 L 65 50 Z" fill="#dc004e"/>
+  <!-- Dark teal top half (works on both teal and white backgrounds) -->
+  <path d="M 35 50 L 35 30 Q 35 15, 50 15 Q 65 15, 65 30 L 65 50 Z" fill="#2c5f61"/>
   
-  <!-- Blue bottom half -->
-  <path d="M 35 50 L 35 70 Q 35 85, 50 85 Q 65 85, 65 70 L 65 50 Z" fill="#1976d2"/>
+  <!-- Orange bottom half (complementary and visible on both backgrounds) -->
+  <path d="M 35 50 L 35 70 Q 35 85, 50 85 Q 65 85, 65 70 L 65 50 Z" fill="#e67e22"/>
   
   <!-- Center dividing line -->
-  <line x1="35" y1="50" x2="65" y2="50" stroke="#ffffff" stroke-width="2" opacity="0.6"/>
+  <line x1="35" y1="50" x2="65" y2="50" stroke="#ffffff" stroke-width="2" opacity="0.8"/>
   
-  <!-- Glossy highlight on red half -->
+  <!-- Glossy highlight on dark teal half -->
   <ellipse cx="55" cy="30" rx="6" ry="10" fill="#ffffff" opacity="0.3"/>
   
-  <!-- Glossy highlight on blue half -->
+  <!-- Glossy highlight on orange half -->
   <ellipse cx="55" cy="65" rx="6" ry="10" fill="#ffffff" opacity="0.3"/>
 </svg>

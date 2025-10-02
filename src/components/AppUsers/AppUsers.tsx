@@ -401,6 +401,7 @@ function AppUsers() {
             onChange={(e) => setSearchTerm(e.target.value)}
             variant="outlined"
             size="small"
+            autoComplete="off"
             InputProps={{
               endAdornment: searchTerm && (
                 <InputAdornment position="end">
