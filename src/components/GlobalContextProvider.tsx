@@ -1,7 +1,7 @@
 import { createContext } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { jwtDecode } from "jwt-decode";
-import { LoggedInUser } from "../types";
+import { LoggedInUser } from "../types/LoggedInUser";
 
 export const GlobalContext = createContext({
   jwtToken: "",

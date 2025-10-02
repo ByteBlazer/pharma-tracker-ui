@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router";
-import AddRemoveUsers from "./AddRemoveUsers/AddRemoveUsers";
+import AppUsers from "./AppUsers/AppUsers";
 import TripDashboard from "./TripDashboard/TripDashboard";
 import Home from "./Home/Home";
 import Login from "./Login/Login";
@@ -9,6 +9,7 @@ import { GlobalContext } from "./GlobalContextProvider";
 
 import "./App.css";
 import { GlobalContextProvider } from "./GlobalContextProvider";
+import BaseLocations from "./BaseLocations/BaseLocations";
 
 function App() {
   return (
@@ -43,7 +44,15 @@ function AppContent() {
             path="/users"
             element={
               <ProtectedRoute>
-                <AddRemoveUsers />
+                <AppUsers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/base-locations"
+            element={
+              <ProtectedRoute>
+                <BaseLocations />
               </ProtectedRoute>
             }
           />
