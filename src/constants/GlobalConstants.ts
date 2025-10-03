@@ -11,4 +11,13 @@ export const API_ENDPOINTS = {
   UPDATE_USER: (userId: string) => `${API_BASE_URL}/auth/users/${userId}`,
   UPDATE_BASE_LOCATION: (locationId: string) =>
     `${API_BASE_URL}/auth/base-locations/${locationId}`,
+  SETTING: (settingName: string) => `${API_BASE_URL}/setting/${settingName}`,
+  UPDATE_SETTING: `${API_BASE_URL}/setting`,
+} as const;
+
+// Setting Names
+export const SETTING_NAMES = {
+  COOL_OFF_SECONDS_BTWN_DIFF_ROUTE_SCANS:
+    "COOL_OFF_SECONDS_BTWN_DIFF_ROUTE_SCANS",
+  MINS_BETWEEN_LOCATION_HEARTBEATS: "MINS_BETWEEN_LOCATION_HEARTBEATS",
 } as const;
