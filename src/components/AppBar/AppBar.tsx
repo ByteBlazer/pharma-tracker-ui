@@ -12,8 +12,8 @@ import {
 import {
   Home as HomeIcon,
   People as UsersIcon,
-  LocationOn as LocationIcon,
-  DirectionsCar as TripsIcon,
+  Storefront as LocationIcon,
+  LocalShipping as TripsIcon,
   Logout as LogoutIcon,
   Settings as SettingsIcon,
 } from "@mui/icons-material";
