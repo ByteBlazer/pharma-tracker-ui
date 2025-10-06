@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { Navigate } from "react-router";
 import { GlobalContext } from "../GlobalContextProvider";
 
@@ -9,11 +9,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Check if user is authenticated with valid token
   const isAuthenticated = jwtToken !== "" && isTokenValid;
 
-  if (!isAuthenticated) {
-    // Clear invalid/expired token
+  // Clear invalid/expired token using useEffect to avoid calling during render
+  useEffect(() => {
     if (jwtToken && (isTokenExpired || !isTokenValid)) {
       clearJwtToken();
     }
+  }, [jwtToken, isTokenExpired, isTokenValid, clearJwtToken]);
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
 
