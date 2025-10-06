@@ -181,10 +181,10 @@ const Settings: React.FC = () => {
     <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h3" component="h1" color="primary" gutterBottom>
+        <Typography variant="h4" component="h1" color="primary" gutterBottom>
           Mobile App Settings
         </Typography>
-        <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           Manage your mobile app settings
         </Typography>
         <Alert severity="warning" sx={{ maxWidth: 600 }}>

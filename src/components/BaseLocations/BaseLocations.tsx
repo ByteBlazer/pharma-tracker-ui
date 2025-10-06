@@ -325,8 +325,15 @@ function BaseLocations() {
         </Button>
       </Box>
 
-      <TableContainer component={Paper} sx={{ mt: 2 }}>
-        <Table>
+      <TableContainer
+        component={Paper}
+        sx={{
+          mt: 2,
+          maxHeight: 500,
+          overflow: "auto",
+        }}
+      >
+        <Table stickyHeader>
           <TableHead>
             <TableRow>
               <TableCell>

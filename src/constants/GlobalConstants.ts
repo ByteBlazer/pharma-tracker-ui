@@ -13,6 +13,8 @@ export const API_ENDPOINTS = {
     `${API_BASE_URL}/auth/base-locations/${locationId}`,
   SETTING: (settingName: string) => `${API_BASE_URL}/setting/${settingName}`,
   UPDATE_SETTING: `${API_BASE_URL}/setting`,
+  ALL_TRIPS: `${API_BASE_URL}/trip/all-trips`,
+  TRIP_DETAIL: (tripId: number) => `${API_BASE_URL}/trip/${tripId}`,
 } as const;
 
 // Setting Names
