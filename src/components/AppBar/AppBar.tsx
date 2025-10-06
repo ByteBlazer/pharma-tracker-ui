@@ -76,25 +76,38 @@ const AppBar: React.FC = () => {
   };
 
   return (
-    <MuiAppBar position="static">
+    <MuiAppBar position="sticky">
       <Toolbar>
         <Box
           sx={{ flexGrow: 1, display: "flex", alignItems: "center", gap: 1 }}
         >
-          <img
-            src="/pharma-tracker-logo.svg"
-            alt="Pharma Tracker"
-            style={{
-              height: "32px",
-              width: "32px",
-              objectFit: "contain",
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
+              cursor: "pointer",
+              "&:hover": {
+                opacity: 0.8,
+              },
             }}
-          />
-          {!isMobile && (
-            <Typography variant="h6" component="div">
-              Pharma Tracker
-            </Typography>
-          )}
+            onClick={() => navigate("/")}
+          >
+            <img
+              src="/pharma-tracker-logo.svg"
+              alt="Pharma Tracker"
+              style={{
+                height: "32px",
+                width: "32px",
+                objectFit: "contain",
+              }}
+            />
+            {!isMobile && (
+              <Typography variant="h6" component="div">
+                Pharma Tracker
+              </Typography>
+            )}
+          </Box>
         </Box>
         <Box
           sx={{ display: "flex", gap: isMobile ? 1 : 2, alignItems: "center" }}

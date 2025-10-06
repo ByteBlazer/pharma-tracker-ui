@@ -29,7 +29,7 @@ function Home() {
     <Box sx={{ p: 3, maxWidth: 1200, mx: "auto" }}>
       {/* Welcome Header */}
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h3" component="h1" color="primary" gutterBottom>
+        <Typography variant="h4" component="h1" color="primary" gutterBottom>
           Welcome back, {loggedInUser.username}!
         </Typography>
         <Typography variant="h6" color="text.secondary">
