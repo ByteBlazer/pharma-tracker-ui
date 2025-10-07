@@ -21,6 +21,7 @@ import {
   Cancel,
   Warning,
   ConfirmationNumber,
+  LocalShipping,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
 import {
@@ -118,37 +119,17 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 const getMarkerIcon = (marker: MapMarker): string | any => {
   if (marker.type === "driver") {
     return {
-      url:
-        "data:image/svg+xml;charset=UTF-8," +
-        encodeURIComponent(`
-        <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="16" cy="16" r="12" fill="#1976d2" stroke="white" stroke-width="2"/>
-          <text x="16" y="20" text-anchor="middle" fill="white" font-size="12" font-weight="bold">D</text>
-        </svg>
-      `),
-      scaledSize: new window.google.maps.Size(32, 32),
-      anchor: new window.google.maps.Point(16, 16),
+      url: "/truck-front.png",
+      scaledSize: new window.google.maps.Size(75, 75),
+      anchor: new window.google.maps.Point(37.5, 37.5),
     };
   }
 
-  // Customer marker colors based on status
-  let color = "#ff9800"; // Default yellow for ON_TRIP/AT_TRANSIT_HUB
-  if (marker.status === DocStatus.DELIVERED) {
-    color = "#4caf50"; // Green
-  } else if (marker.status === DocStatus.UNDELIVERED) {
-    color = "#f44336"; // Red
-  }
-
+  // Customer marker - use PNG image
   return {
-    url:
-      "data:image/svg+xml;charset=UTF-8," +
-      encodeURIComponent(`
-      <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="${color}"/>
-      </svg>
-    `),
-    scaledSize: new window.google.maps.Size(24, 24),
-    anchor: new window.google.maps.Point(12, 12),
+    url: "/customer.png",
+    scaledSize: new window.google.maps.Size(65, 70),
+    anchor: new window.google.maps.Point(32.5, 70), // Anchor at bottom point
   };
 };
 
