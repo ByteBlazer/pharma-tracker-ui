@@ -365,12 +365,14 @@ const TripDashboard: React.FC = () => {
     setMapMarkers(markers);
   }, [allTripsData]);
 
-  // Add customer markers when trip is selected and has details
+  // Add customer markers and selected trip's driver marker when trip is selected
   useEffect(() => {
     if (!selectedTrip?.docGroups) return;
 
     const customerMarkers: MapMarker[] = [];
+    const selectedTripDriverMarker: MapMarker[] = [];
 
+    // Add customer markers for selected trip
     selectedTrip.docGroups.forEach((docGroup) => {
       docGroup.docs.forEach((doc) => {
         if (doc.customerGeoLatitude && doc.customerGeoLongitude) {
@@ -395,10 +397,24 @@ const TripDashboard: React.FC = () => {
       });
     });
 
-    setMapMarkers((prev) => [
-      ...prev.filter((m) => m.type === "driver"),
-      ...customerMarkers,
-    ]);
+    // Add driver marker for selected trip only
+    if (
+      selectedTrip.driverLastKnownLatitude &&
+      selectedTrip.driverLastKnownLongitude
+    ) {
+      selectedTripDriverMarker.push({
+        id: `driver-${selectedTrip.tripId}`,
+        position: {
+          lat: parseFloat(selectedTrip.driverLastKnownLatitude),
+          lng: parseFloat(selectedTrip.driverLastKnownLongitude),
+        },
+        type: "driver",
+        title: `${selectedTrip.driverName} - ${selectedTrip.vehicleNumber}`,
+        tripId: selectedTrip.tripId,
+      });
+    }
+
+    setMapMarkers([...selectedTripDriverMarker, ...customerMarkers]);
   }, [selectedTrip]);
 
   const isLoading = tripsLoading || tripDetailLoading;
