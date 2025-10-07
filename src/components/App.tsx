@@ -8,6 +8,7 @@ import AppBar from "./AppBar/AppBar";
 import Settings from "./Settings/Settings";
 import { useContext } from "react";
 import { GlobalContext } from "./GlobalContextProvider";
+import PublicTracking from "./PublicTracking/PublicTracking";
 
 import "./App.css";
 import { GlobalContextProvider } from "./GlobalContextProvider";
@@ -26,48 +27,63 @@ function AppContent() {
 
   return (
     <BrowserRouter>
-      {loggedInUser && <AppBar />}
       <Routes>
         <Route path="/login" element={<Login appName="Pharma Tracker Web" />} />
+        <Route path="/tracking" element={<PublicTracking />} />
         <Route
           path="/"
           element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
+            <>
+              {loggedInUser && <AppBar />}
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            </>
           }
         />
 
         <Route
           path="/users"
           element={
-            <ProtectedRoute>
-              <AppUsers />
-            </ProtectedRoute>
+            <>
+              {loggedInUser && <AppBar />}
+              <ProtectedRoute>
+                <AppUsers />
+              </ProtectedRoute>
+            </>
           }
         />
         <Route
           path="/base-locations"
           element={
-            <ProtectedRoute>
-              <BaseLocations />
-            </ProtectedRoute>
+            <>
+              {loggedInUser && <AppBar />}
+              <ProtectedRoute>
+                <BaseLocations />
+              </ProtectedRoute>
+            </>
           }
         />
         <Route
           path="/trips"
           element={
-            <ProtectedRoute>
-              <TripDashboard />
-            </ProtectedRoute>
+            <>
+              {loggedInUser && <AppBar />}
+              <ProtectedRoute>
+                <TripDashboard />
+              </ProtectedRoute>
+            </>
           }
         />
         <Route
           path="/settings"
           element={
-            <ProtectedRoute>
-              <Settings />
-            </ProtectedRoute>
+            <>
+              {loggedInUser && <AppBar />}
+              <ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
+            </>
           }
         />
       </Routes>

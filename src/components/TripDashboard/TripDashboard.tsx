@@ -11,24 +11,23 @@ import {
   useMediaQuery,
   Paper,
   Divider,
+  Button,
 } from "@mui/material";
 import {
   DirectionsCar,
   Person,
   Schedule,
-  LocationOn,
   CheckCircle,
   Cancel,
   Warning,
   ConfirmationNumber,
-  LocalShipping,
+  Visibility,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
 import {
   Trip,
   AllTripsResponse,
   TripStatus,
-  DocStatus,
   MapMarker,
 } from "../../types/Trip";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
@@ -56,6 +55,89 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const infoWindowRef = useRef<any>(null);
+
+  // Function to show customer info window
+  const showCustomerInfoWindow = (marker: any, markerData: MapMarker) => {
+    if (!infoWindowRef.current || !markerData.customerInfo) return;
+
+    const trackingUrl = generateTrackingUrl(
+      markerData.id.replace("customer-", "")
+    );
+
+    const content = `
+      <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 300px;">
+        <h4 style="margin: 0 0 8px 0; color: #333;">${
+          markerData.customerInfo.firmName
+        }</h4>
+        <p style="margin: 4px 0; color: #666; font-size: 14px;">
+          <strong>Address:</strong> ${markerData.customerInfo.address}, ${
+      markerData.customerInfo.city
+    }
+        </p>
+        <p style="margin: 4px 0; color: #666; font-size: 14px;">
+          <strong>Phone:</strong> ${markerData.customerInfo.phone}
+        </p>
+        <p style="margin: 4px 0; color: #333; font-size: 14px;">
+          <strong>Status:</strong> 
+          <span style="color: ${getStatusColor(
+            markerData.status
+          )}; font-weight: bold;">
+            ${markerData.status || "Unknown"}
+          </span>
+        </p>
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
+          <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+            Tracking URL:
+          </p>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <input 
+              type="text" 
+              value="${trackingUrl}" 
+              readonly 
+              style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; background: #f5f5f5;"
+              id="tracking-url-${markerData.id}"
+            />
+            <button 
+              onclick="copyToClipboard('tracking-url-${markerData.id}')"
+              style="padding: 4px 8px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add global copy function
+    (window as any).copyToClipboard = (inputId: string) => {
+      const input = document.getElementById(inputId) as HTMLInputElement;
+      if (input) {
+        input.select();
+        document.execCommand("copy");
+        // You could add a toast notification here
+      }
+    };
+
+    infoWindowRef.current.setContent(content);
+    infoWindowRef.current.open(mapInstanceRef.current, marker);
+  };
+
+  // Helper function to get status color
+  const getStatusColor = (status?: string): string => {
+    switch (status) {
+      case "DELIVERED":
+        return "#4caf50";
+      case "UNDELIVERED":
+        return "#f44336";
+      case "ON_TRIP":
+        return "#2196f3";
+      case "AT_TRANSIT_HUB":
+        return "#ff9800";
+      default:
+        return "#666";
+    }
+  };
 
   useEffect(() => {
     if (!mapRef.current || !window.google) return;
@@ -71,10 +153,16 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
     mapInstanceRef.current = map;
 
+    // Initialize InfoWindow
+    infoWindowRef.current = new window.google.maps.InfoWindow();
+
     return () => {
-      // Cleanup markers
+      // Cleanup markers and info window
       markersRef.current.forEach((marker) => marker.setMap(null));
       markersRef.current = [];
+      if (infoWindowRef.current) {
+        infoWindowRef.current.close();
+      }
     };
   }, []);
 
@@ -96,7 +184,11 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
 
       // Add click listener
       marker.addListener("click", () => {
-        if (markerData.tripId) {
+        if (markerData.type === "customer" && markerData.customerInfo) {
+          // Show info window for customer markers
+          showCustomerInfoWindow(marker, markerData);
+        } else if (markerData.tripId) {
+          // Handle driver marker clicks (existing behavior)
           onMarkerClick(markerData.tripId);
         }
       });
@@ -133,6 +225,13 @@ const getMarkerIcon = (marker: MapMarker): string | any => {
     scaledSize: new window.google.maps.Size(65, 70),
     anchor: new window.google.maps.Point(32.5, 70), // Anchor at bottom point
   };
+};
+
+// Helper function to generate tracking URL
+const generateTrackingUrl = (docId: string): string => {
+  const token = btoa(docId); // Base64 encode the docId
+  const baseUrl = window.location.origin;
+  return `${baseUrl}/tracking?token=${token}`;
 };
 
 // Trip card component
@@ -342,6 +441,11 @@ const TripDashboard: React.FC = () => {
     }
   };
 
+  // Handle "Show All Trips" button click
+  const handleShowAllTrips = () => {
+    setSelectedTripId(null);
+  };
+
   // Generate map markers
   useEffect(() => {
     if (!allTripsData?.trips) return;
@@ -458,9 +562,31 @@ const TripDashboard: React.FC = () => {
         {/* Trip Cards */}
         <Box sx={{ flex: { xs: "1", md: "0 0 33%" } }}>
           <Paper sx={{ p: 2, mb: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Active Trips ({trips.length})
-            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
+            >
+              <Typography variant="h6">
+                Active Trips ({trips.length})
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Visibility />}
+                onClick={handleShowAllTrips}
+                disabled={!selectedTripId}
+                sx={{
+                  minWidth: "auto",
+                  px: 2,
+                }}
+              >
+                Show All Trips On Map
+              </Button>
+            </Box>
             <Box
               sx={{ maxHeight: isMobile ? "300px" : "600px", overflow: "auto" }}
             >
