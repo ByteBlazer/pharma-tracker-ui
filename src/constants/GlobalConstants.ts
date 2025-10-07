@@ -15,6 +15,8 @@ export const API_ENDPOINTS = {
   UPDATE_SETTING: `${API_BASE_URL}/setting`,
   ALL_TRIPS: `${API_BASE_URL}/trip/all-trips`,
   TRIP_DETAIL: (tripId: number) => `${API_BASE_URL}/trip/${tripId}`,
+  DOC_TRACKING: (token: string) =>
+    `${API_BASE_URL}/doc/tracking?token=${token}`,
 } as const;
 
 // Setting Names
