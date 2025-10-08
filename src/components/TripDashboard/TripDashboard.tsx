@@ -12,6 +12,8 @@ import {
   Paper,
   Divider,
   Button,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   DirectionsCar,
@@ -400,6 +402,7 @@ const TripDashboard: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
+  const [activeTab, setActiveTab] = useState(0); // 0: Ongoing, 1: Scheduled, 2: Ended
 
   // Fetch all trips
   const {
@@ -444,6 +447,28 @@ const TripDashboard: React.FC = () => {
   // Handle "Locate all Drivers" button click
   const handleLocateAllDrivers = () => {
     setSelectedTripId(null);
+  };
+
+  // Handle tab change
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+    setSelectedTripId(null); // Deselect trip when switching tabs
+  };
+
+  // Filter trips by status based on active tab
+  const getFilteredTrips = () => {
+    if (!trips) return [];
+
+    switch (activeTab) {
+      case 0: // Ongoing trips
+        return trips.filter((trip) => trip.status === TripStatus.STARTED);
+      case 1: // Scheduled trips
+        return trips.filter((trip) => trip.status === TripStatus.SCHEDULED);
+      case 2: // Ended trips
+        return trips.filter((trip) => trip.status === TripStatus.ENDED);
+      default:
+        return trips;
+    }
   };
 
   // Calculate delivery statistics for selected trip
@@ -618,31 +643,62 @@ const TripDashboard: React.FC = () => {
               }}
             >
               <Typography variant="h6">
-                Active Trips ({trips.length})
+                {activeTab === 0 &&
+                  `Ongoing Trips (${getFilteredTrips().length})`}
+                {activeTab === 1 &&
+                  `Scheduled Trips (${getFilteredTrips().length})`}
+                {activeTab === 2 &&
+                  `Ended Trips (${getFilteredTrips().length})`}
               </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Visibility />}
-                onClick={handleLocateAllDrivers}
-                disabled={!selectedTripId}
-                sx={{
-                  minWidth: "auto",
-                  px: 2,
-                }}
-              >
-                Locate all Drivers
-              </Button>
+              {activeTab === 0 && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Visibility />}
+                  onClick={handleLocateAllDrivers}
+                  disabled={!selectedTripId}
+                  sx={{
+                    minWidth: "auto",
+                    px: 2,
+                  }}
+                >
+                  Locate all Drivers
+                </Button>
+              )}
             </Box>
+
+            {/* Trip Status Tabs */}
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              variant="fullWidth"
+              sx={{ mb: 2 }}
+            >
+              <Tab
+                label="Ongoing"
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              />
+              <Tab
+                label="Scheduled"
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              />
+              <Tab
+                label="Ended"
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              />
+            </Tabs>
+
             <Box
               sx={{ maxHeight: isMobile ? "300px" : "600px", overflow: "auto" }}
             >
-              {trips.length === 0 ? (
+              {getFilteredTrips().length === 0 ? (
                 <Alert severity="info">
-                  No trips found. Showing all driver locations on map.
+                  {activeTab === 0 && "No ongoing trips found."}
+                  {activeTab === 1 && "No scheduled trips found."}
+                  {activeTab === 2 && "No ended trips found."}
                 </Alert>
               ) : (
-                trips.map((trip) => (
+                getFilteredTrips().map((trip) => (
                   <Box key={trip.tripId} sx={{ mb: 2 }}>
                     <TripCard
                       trip={trip}
