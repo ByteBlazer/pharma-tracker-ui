@@ -14,6 +14,7 @@ import {
   Button,
   Tabs,
   Tab,
+  Popover,
 } from "@mui/material";
 import {
   DirectionsCar,
@@ -23,7 +24,6 @@ import {
   Cancel,
   Warning,
   ConfirmationNumber,
-  Visibility,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
 import {
@@ -403,6 +403,9 @@ const TripDashboard: React.FC = () => {
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [activeTab, setActiveTab] = useState(0); // 0: Ongoing, 1: Scheduled, 2: Ended
+  const [showGuidance, setShowGuidance] = useState(false);
+  const firstCardRef = useRef<HTMLDivElement>(null);
+  const guidanceTimerRef = useRef<number | null>(null);
 
   // Fetch all trips
   const {
@@ -444,9 +447,59 @@ const TripDashboard: React.FC = () => {
     }
   };
 
-  // Handle "Locate all Drivers" button click
-  const handleLocateAllDrivers = () => {
-    setSelectedTripId(null);
+  // Show guidance when trips are loaded (only for Ongoing tab with trips, and only once per session)
+  useEffect(() => {
+    // Check if we have ongoing trips (STARTED status)
+    const ongoingTrips =
+      allTripsData?.trips?.filter(
+        (trip) => trip.status === TripStatus.STARTED
+      ) || [];
+
+    // Check if user has already seen guidance in this session
+    const hasSeenGuidanceInSession = sessionStorage.getItem(
+      "tripDashboardGuidanceSeen"
+    );
+
+    if (
+      activeTab === 0 &&
+      ongoingTrips.length > 0 &&
+      !hasSeenGuidanceInSession
+    ) {
+      setShowGuidance(true);
+
+      // Mark as seen in session storage
+      sessionStorage.setItem("tripDashboardGuidanceSeen", "true");
+
+      // Auto-dismiss after 10 seconds
+      guidanceTimerRef.current = setTimeout(() => {
+        setShowGuidance(false);
+      }, 10000);
+    } else {
+      setShowGuidance(false);
+      // Clear timer if tab changes or no trips
+      if (guidanceTimerRef.current) {
+        clearTimeout(guidanceTimerRef.current);
+        guidanceTimerRef.current = null;
+      }
+    }
+
+    // Cleanup timer on unmount
+    return () => {
+      if (guidanceTimerRef.current) {
+        clearTimeout(guidanceTimerRef.current);
+        guidanceTimerRef.current = null;
+      }
+    };
+  }, [allTripsData, activeTab]);
+
+  // Handle guidance dismiss
+  const handleDismissGuidance = () => {
+    setShowGuidance(false);
+    // Clear timer when manually dismissed
+    if (guidanceTimerRef.current) {
+      clearTimeout(guidanceTimerRef.current);
+      guidanceTimerRef.current = null;
+    }
   };
 
   // Handle tab change
@@ -515,12 +568,17 @@ const TripDashboard: React.FC = () => {
     };
   };
 
-  // Generate map markers - show all drivers when no trip is selected
+  // Generate map markers - show all drivers when no trip is selected (only for Ongoing tab)
   useEffect(() => {
     if (!allTripsData?.trips) return;
 
-    // Only show all drivers when no trip is selected
+    // Only show all drivers when no trip is selected AND on Ongoing tab (activeTab === 0)
     if (selectedTripId) return;
+    if (activeTab !== 0) {
+      // For Scheduled and Ended tabs, clear map when no trip is selected
+      setMapMarkers([]);
+      return;
+    }
 
     const markers: MapMarker[] = [];
 
@@ -541,7 +599,7 @@ const TripDashboard: React.FC = () => {
     });
 
     setMapMarkers(markers);
-  }, [allTripsData, selectedTripId]);
+  }, [allTripsData, selectedTripId, activeTab]);
 
   // Add customer markers and selected trip's driver marker when trip is selected
   useEffect(() => {
@@ -650,21 +708,6 @@ const TripDashboard: React.FC = () => {
                 {activeTab === 2 &&
                   `Ended Trips (${getFilteredTrips().length})`}
               </Typography>
-              {activeTab === 0 && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<Visibility />}
-                  onClick={handleLocateAllDrivers}
-                  disabled={!selectedTripId}
-                  sx={{
-                    minWidth: "auto",
-                    px: 2,
-                  }}
-                >
-                  Locate all Drivers
-                </Button>
-              )}
             </Box>
 
             {/* Trip Status Tabs */}
@@ -689,7 +732,12 @@ const TripDashboard: React.FC = () => {
             </Tabs>
 
             <Box
-              sx={{ maxHeight: isMobile ? "300px" : "600px", overflow: "auto" }}
+              sx={{
+                maxHeight: isMobile ? "300px" : "600px",
+                overflow: "auto",
+                position: "relative",
+                pt: 1, // Add top padding to prevent first card edge clipping on hover
+              }}
             >
               {getFilteredTrips().length === 0 ? (
                 <Alert severity="info">
@@ -698,8 +746,12 @@ const TripDashboard: React.FC = () => {
                   {activeTab === 2 && "No ended trips found."}
                 </Alert>
               ) : (
-                getFilteredTrips().map((trip) => (
-                  <Box key={trip.tripId} sx={{ mb: 2 }}>
+                getFilteredTrips().map((trip, index) => (
+                  <Box
+                    key={trip.tripId}
+                    sx={{ mb: 2 }}
+                    ref={index === 0 ? firstCardRef : null}
+                  >
                     <TripCard
                       trip={trip}
                       isSelected={selectedTripId === trip.tripId}
@@ -709,6 +761,74 @@ const TripDashboard: React.FC = () => {
                 ))
               )}
             </Box>
+
+            {/* Guidance Speech Balloon */}
+            <Popover
+              open={showGuidance}
+              anchorEl={firstCardRef.current}
+              onClose={handleDismissGuidance}
+              anchorOrigin={{
+                vertical: "top",
+                horizontal: "center",
+              }}
+              transformOrigin={{
+                vertical: "bottom",
+                horizontal: "center",
+              }}
+              slotProps={{
+                backdrop: {
+                  onClick: handleDismissGuidance,
+                },
+              }}
+              disableScrollLock={true}
+              PaperProps={{
+                sx: {
+                  p: 0,
+                  maxWidth: 300,
+                  bgcolor: "transparent",
+                  boxShadow: "none",
+                  mt: -1.5,
+                  overflow: "visible",
+                },
+              }}
+            >
+              <Box sx={{ position: "relative" }}>
+                {/* Speech balloon body */}
+                <Box
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    p: 2,
+                    borderRadius: 2,
+                    transition: "opacity 1s ease-in-out",
+                    opacity: showGuidance ? 1 : 0,
+                  }}
+                >
+                  <Typography variant="body2">
+                    👋 The map is now showing all driver locations. Click on a
+                    trip card to view that trip's details alone!
+                  </Typography>
+                </Box>
+
+                {/* Speech balloon tail/arrow pointing down */}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: "-8px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 0,
+                    height: 0,
+                    borderLeft: "8px solid transparent",
+                    borderRight: "8px solid transparent",
+                    borderTop: "8px solid",
+                    borderTopColor: "primary.main",
+                    transition: "opacity 1s ease-in-out",
+                    opacity: showGuidance ? 1 : 0,
+                  }}
+                />
+              </Box>
+            </Popover>
           </Paper>
         </Box>
 
