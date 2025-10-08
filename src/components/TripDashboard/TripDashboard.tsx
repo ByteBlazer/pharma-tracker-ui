@@ -12,6 +12,9 @@ import {
   Paper,
   Divider,
   Button,
+  Tabs,
+  Tab,
+  Popover,
 } from "@mui/material";
 import {
   DirectionsCar,
@@ -21,7 +24,6 @@ import {
   Cancel,
   Warning,
   ConfirmationNumber,
-  Visibility,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
 import {
@@ -180,6 +182,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         map: mapInstanceRef.current,
         title: markerData.title,
         icon: getMarkerIcon(markerData),
+        zIndex: markerData.type === "driver" ? 1000 : 100, // Driver markers always on top
       });
 
       // Add click listener
@@ -400,6 +403,10 @@ const TripDashboard: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
+  const [activeTab, setActiveTab] = useState(0); // 0: Ongoing, 1: Scheduled, 2: Ended
+  const [showGuidance, setShowGuidance] = useState(false);
+  const firstCardRef = useRef<HTMLDivElement>(null);
+  const guidanceTimerRef = useRef<number | null>(null);
 
   // Fetch all trips
   const {
@@ -441,14 +448,138 @@ const TripDashboard: React.FC = () => {
     }
   };
 
-  // Handle "Show All Trips" button click
-  const handleShowAllTrips = () => {
-    setSelectedTripId(null);
+  // Show guidance when trips are loaded (only for Ongoing tab with trips, and only once per session)
+  useEffect(() => {
+    // Check if we have ongoing trips (STARTED status)
+    const ongoingTrips =
+      allTripsData?.trips?.filter(
+        (trip) => trip.status === TripStatus.STARTED
+      ) || [];
+
+    // Check if user has already seen guidance in this session
+    const hasSeenGuidanceInSession = sessionStorage.getItem(
+      "tripDashboardGuidanceSeen"
+    );
+
+    if (
+      activeTab === 0 &&
+      ongoingTrips.length > 0 &&
+      !hasSeenGuidanceInSession
+    ) {
+      setShowGuidance(true);
+
+      // Mark as seen in session storage
+      sessionStorage.setItem("tripDashboardGuidanceSeen", "true");
+
+      // Auto-dismiss after 10 seconds
+      guidanceTimerRef.current = setTimeout(() => {
+        setShowGuidance(false);
+      }, 10000);
+    } else {
+      setShowGuidance(false);
+      // Clear timer if tab changes or no trips
+      if (guidanceTimerRef.current) {
+        clearTimeout(guidanceTimerRef.current);
+        guidanceTimerRef.current = null;
+      }
+    }
+
+    // Cleanup timer on unmount
+    return () => {
+      if (guidanceTimerRef.current) {
+        clearTimeout(guidanceTimerRef.current);
+        guidanceTimerRef.current = null;
+      }
+    };
+  }, [allTripsData, activeTab]);
+
+  // Handle guidance dismiss
+  const handleDismissGuidance = () => {
+    setShowGuidance(false);
+    // Clear timer when manually dismissed
+    if (guidanceTimerRef.current) {
+      clearTimeout(guidanceTimerRef.current);
+      guidanceTimerRef.current = null;
+    }
   };
 
-  // Generate map markers
+  // Handle tab change
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+    setSelectedTripId(null); // Deselect trip when switching tabs
+  };
+
+  // Filter trips by status based on active tab
+  const getFilteredTrips = () => {
+    if (!trips) return [];
+
+    switch (activeTab) {
+      case 0: // Ongoing trips
+        return trips.filter((trip) => trip.status === TripStatus.STARTED);
+      case 1: // Scheduled trips
+        return trips.filter((trip) => trip.status === TripStatus.SCHEDULED);
+      case 2: // Ended trips
+        return trips.filter((trip) => trip.status === TripStatus.ENDED);
+      default:
+        return trips;
+    }
+  };
+
+  // Calculate delivery statistics for selected trip
+  const getTripSummary = () => {
+    if (!selectedTrip?.docGroups) return null;
+
+    let totalDeliveries = 0;
+    let completedDeliveries = 0;
+    let failedDeliveries = 0;
+    let pendingDeliveries = 0;
+
+    selectedTrip.docGroups.forEach((docGroup) => {
+      docGroup.docs.forEach((doc) => {
+        totalDeliveries++;
+        switch (doc.status) {
+          case "DELIVERED":
+            completedDeliveries++;
+            break;
+          case "UNDELIVERED":
+            failedDeliveries++;
+            break;
+          default:
+            pendingDeliveries++;
+            break;
+        }
+      });
+    });
+
+    // Calculate trip duration
+    const tripCreateTime = new Date(selectedTrip.createdAt);
+    const now = new Date();
+    const durationMs = now.getTime() - tripCreateTime.getTime();
+    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+    const durationMinutes = Math.floor(
+      (durationMs % (1000 * 60 * 60)) / (1000 * 60)
+    );
+
+    return {
+      totalDeliveries,
+      completedDeliveries,
+      failedDeliveries,
+      pendingDeliveries,
+      duration: `${durationHours}h ${durationMinutes}m`,
+    };
+  };
+
+  // Generate map markers - show all drivers when no trip is selected (only for Ongoing tab)
   useEffect(() => {
     if (!allTripsData?.trips) return;
+
+    // Only show all drivers when no trip is selected AND on Ongoing tab (activeTab === 0)
+    if (selectedTripId) return;
+    if (activeTab !== 0) {
+      // For Scheduled and Ended tabs, clear map when no trip is selected
+      setMapMarkers([]);
+      return;
+    }
 
     const markers: MapMarker[] = [];
 
@@ -469,11 +600,11 @@ const TripDashboard: React.FC = () => {
     });
 
     setMapMarkers(markers);
-  }, [allTripsData]);
+  }, [allTripsData, selectedTripId, activeTab]);
 
   // Add customer markers and selected trip's driver marker when trip is selected
   useEffect(() => {
-    if (!selectedTrip?.docGroups) return;
+    if (!selectedTripId || !selectedTrip?.docGroups) return;
 
     const customerMarkers: MapMarker[] = [];
     const selectedTripDriverMarker: MapMarker[] = [];
@@ -521,7 +652,7 @@ const TripDashboard: React.FC = () => {
     }
 
     setMapMarkers([...selectedTripDriverMarker, ...customerMarkers]);
-  }, [selectedTrip]);
+  }, [selectedTripId, selectedTrip]);
 
   const isLoading = tripsLoading || tripDetailLoading;
   const isError = tripsError;
@@ -571,32 +702,57 @@ const TripDashboard: React.FC = () => {
               }}
             >
               <Typography variant="h6">
-                Active Trips ({trips.length})
+                {activeTab === 0 &&
+                  `Ongoing Trips (${getFilteredTrips().length})`}
+                {activeTab === 1 &&
+                  `Scheduled Trips (${getFilteredTrips().length})`}
+                {activeTab === 2 &&
+                  `Ended Trips (${getFilteredTrips().length})`}
               </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<Visibility />}
-                onClick={handleShowAllTrips}
-                disabled={!selectedTripId}
-                sx={{
-                  minWidth: "auto",
-                  px: 2,
-                }}
-              >
-                Show All Trips On Map
-              </Button>
             </Box>
-            <Box
-              sx={{ maxHeight: isMobile ? "300px" : "600px", overflow: "auto" }}
+
+            {/* Trip Status Tabs */}
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              variant="fullWidth"
+              sx={{ mb: 2 }}
             >
-              {trips.length === 0 ? (
+              <Tab
+                label="Ongoing"
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              />
+              <Tab
+                label="Scheduled"
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              />
+              <Tab
+                label="Ended"
+                sx={{ textTransform: "none", fontWeight: "bold" }}
+              />
+            </Tabs>
+
+            <Box
+              sx={{
+                maxHeight: isMobile ? "300px" : "600px",
+                overflow: "auto",
+                position: "relative",
+                pt: 1, // Add top padding to prevent first card edge clipping on hover
+              }}
+            >
+              {getFilteredTrips().length === 0 ? (
                 <Alert severity="info">
-                  No trips found. Showing all driver locations on map.
+                  {activeTab === 0 && "No ongoing trips found."}
+                  {activeTab === 1 && "No scheduled trips found."}
+                  {activeTab === 2 && "No ended trips found."}
                 </Alert>
               ) : (
-                trips.map((trip) => (
-                  <Box key={trip.tripId} sx={{ mb: 2 }}>
+                getFilteredTrips().map((trip, index) => (
+                  <Box
+                    key={trip.tripId}
+                    sx={{ mb: 2 }}
+                    ref={index === 0 ? firstCardRef : null}
+                  >
                     <TripCard
                       trip={trip}
                       isSelected={selectedTripId === trip.tripId}
@@ -606,6 +762,74 @@ const TripDashboard: React.FC = () => {
                 ))
               )}
             </Box>
+
+            {/* Guidance Speech Balloon */}
+            <Popover
+              open={showGuidance}
+              anchorEl={firstCardRef.current}
+              onClose={handleDismissGuidance}
+              anchorOrigin={{
+                vertical: "top",
+                horizontal: "center",
+              }}
+              transformOrigin={{
+                vertical: "bottom",
+                horizontal: "center",
+              }}
+              slotProps={{
+                backdrop: {
+                  onClick: handleDismissGuidance,
+                },
+              }}
+              disableScrollLock={true}
+              PaperProps={{
+                sx: {
+                  p: 0,
+                  maxWidth: 300,
+                  bgcolor: "transparent",
+                  boxShadow: "none",
+                  mt: -1.5,
+                  overflow: "visible",
+                },
+              }}
+            >
+              <Box sx={{ position: "relative" }}>
+                {/* Speech balloon body */}
+                <Box
+                  sx={{
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    p: 2,
+                    borderRadius: 2,
+                    transition: "opacity 1s ease-in-out",
+                    opacity: showGuidance ? 1 : 0,
+                  }}
+                >
+                  <Typography variant="body2">
+                    👋 The map is now showing all driver locations. Click on a
+                    trip card to view that trip's details alone!
+                  </Typography>
+                </Box>
+
+                {/* Speech balloon tail/arrow pointing down */}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: "-8px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 0,
+                    height: 0,
+                    borderLeft: "8px solid transparent",
+                    borderRight: "8px solid transparent",
+                    borderTop: "8px solid",
+                    borderTopColor: "primary.main",
+                    transition: "opacity 1s ease-in-out",
+                    opacity: showGuidance ? 1 : 0,
+                  }}
+                />
+              </Box>
+            </Popover>
           </Paper>
         </Box>
 
@@ -614,8 +838,8 @@ const TripDashboard: React.FC = () => {
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               {selectedTripId
-                ? `Trip #${selectedTripId} Map`
-                : "Driver Locations"}
+                ? `Trip #${selectedTripId}`
+                : "Driver Locations - All Trips"}
             </Typography>
             <Box sx={{ position: "relative" }}>
               <GoogleMap
@@ -623,6 +847,137 @@ const TripDashboard: React.FC = () => {
                 onMarkerClick={handleMarkerClick}
                 height={isMobile ? "400px" : "600px"}
               />
+
+              {/* Trip Summary Overlay */}
+              {selectedTripId && getTripSummary() && (
+                <Paper
+                  elevation={3}
+                  sx={{
+                    position: "absolute",
+                    top: 16,
+                    right: 16,
+                    p: isMobile ? 1.5 : 2,
+                    minWidth: isMobile ? 180 : 250,
+                    maxWidth: isMobile ? "85%" : "auto",
+                    backgroundColor: "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(4px)",
+                    fontSize: isMobile ? "0.75rem" : "0.875rem",
+                  }}
+                >
+                  <Typography
+                    variant={isMobile ? "subtitle2" : "h6"}
+                    sx={{ mb: isMobile ? 0.5 : 1, fontWeight: "bold" }}
+                  >
+                    Trip Summary
+                  </Typography>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="text.secondary"
+                    >
+                      Total Deliveries:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                    >
+                      {getTripSummary()?.totalDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="success.main"
+                    >
+                      ✓ Completed:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="success.main"
+                    >
+                      {getTripSummary()?.completedDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="error.main"
+                    >
+                      ✗ Failed:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="error.main"
+                    >
+                      {getTripSummary()?.failedDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="warning.main"
+                    >
+                      ⏳ Pending:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="warning.main"
+                    >
+                      {getTripSummary()?.pendingDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
+
+                  <Box
+                    sx={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="text.secondary"
+                    >
+                      Trip Duration:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                    >
+                      {getTripSummary()?.duration}
+                    </Typography>
+                  </Box>
+                </Paper>
+              )}
             </Box>
           </Paper>
         </Box>

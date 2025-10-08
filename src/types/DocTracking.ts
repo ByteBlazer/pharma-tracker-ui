@@ -13,4 +13,5 @@ export interface DocTrackingResponse {
     longitude: string;
     receivedAt: string;
   };
+  otherCustomersServiceTime?: number; // in minutes
 }
