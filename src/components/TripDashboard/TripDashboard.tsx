@@ -441,14 +441,61 @@ const TripDashboard: React.FC = () => {
     }
   };
 
-  // Handle "Show All Trips" button click
-  const handleShowAllTrips = () => {
+  // Handle "Locate all Drivers" button click
+  const handleLocateAllDrivers = () => {
     setSelectedTripId(null);
   };
 
-  // Generate map markers
+  // Calculate delivery statistics for selected trip
+  const getTripSummary = () => {
+    if (!selectedTrip?.docGroups) return null;
+
+    let totalDeliveries = 0;
+    let completedDeliveries = 0;
+    let failedDeliveries = 0;
+    let pendingDeliveries = 0;
+
+    selectedTrip.docGroups.forEach((docGroup) => {
+      docGroup.docs.forEach((doc) => {
+        totalDeliveries++;
+        switch (doc.status) {
+          case "DELIVERED":
+            completedDeliveries++;
+            break;
+          case "UNDELIVERED":
+            failedDeliveries++;
+            break;
+          default:
+            pendingDeliveries++;
+            break;
+        }
+      });
+    });
+
+    // Calculate trip duration
+    const tripCreateTime = new Date(selectedTrip.createdAt);
+    const now = new Date();
+    const durationMs = now.getTime() - tripCreateTime.getTime();
+    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+    const durationMinutes = Math.floor(
+      (durationMs % (1000 * 60 * 60)) / (1000 * 60)
+    );
+
+    return {
+      totalDeliveries,
+      completedDeliveries,
+      failedDeliveries,
+      pendingDeliveries,
+      duration: `${durationHours}h ${durationMinutes}m`,
+    };
+  };
+
+  // Generate map markers - show all drivers when no trip is selected
   useEffect(() => {
     if (!allTripsData?.trips) return;
+
+    // Only show all drivers when no trip is selected
+    if (selectedTripId) return;
 
     const markers: MapMarker[] = [];
 
@@ -469,11 +516,11 @@ const TripDashboard: React.FC = () => {
     });
 
     setMapMarkers(markers);
-  }, [allTripsData]);
+  }, [allTripsData, selectedTripId]);
 
   // Add customer markers and selected trip's driver marker when trip is selected
   useEffect(() => {
-    if (!selectedTrip?.docGroups) return;
+    if (!selectedTripId || !selectedTrip?.docGroups) return;
 
     const customerMarkers: MapMarker[] = [];
     const selectedTripDriverMarker: MapMarker[] = [];
@@ -521,7 +568,7 @@ const TripDashboard: React.FC = () => {
     }
 
     setMapMarkers([...selectedTripDriverMarker, ...customerMarkers]);
-  }, [selectedTrip]);
+  }, [selectedTripId, selectedTrip]);
 
   const isLoading = tripsLoading || tripDetailLoading;
   const isError = tripsError;
@@ -577,14 +624,14 @@ const TripDashboard: React.FC = () => {
                 variant="outlined"
                 size="small"
                 startIcon={<Visibility />}
-                onClick={handleShowAllTrips}
+                onClick={handleLocateAllDrivers}
                 disabled={!selectedTripId}
                 sx={{
                   minWidth: "auto",
                   px: 2,
                 }}
               >
-                Show All Trips On Map
+                Locate all Drivers
               </Button>
             </Box>
             <Box
@@ -614,8 +661,8 @@ const TripDashboard: React.FC = () => {
           <Paper sx={{ p: 2 }}>
             <Typography variant="h6" sx={{ mb: 2 }}>
               {selectedTripId
-                ? `Trip #${selectedTripId} Map`
-                : "Driver Locations"}
+                ? `Trip #${selectedTripId}`
+                : "Driver Locations - All Trips"}
             </Typography>
             <Box sx={{ position: "relative" }}>
               <GoogleMap
@@ -623,6 +670,137 @@ const TripDashboard: React.FC = () => {
                 onMarkerClick={handleMarkerClick}
                 height={isMobile ? "400px" : "600px"}
               />
+
+              {/* Trip Summary Overlay */}
+              {selectedTripId && getTripSummary() && (
+                <Paper
+                  elevation={3}
+                  sx={{
+                    position: "absolute",
+                    top: 16,
+                    right: 16,
+                    p: isMobile ? 1.5 : 2,
+                    minWidth: isMobile ? 180 : 250,
+                    maxWidth: isMobile ? "85%" : "auto",
+                    backgroundColor: "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(4px)",
+                    fontSize: isMobile ? "0.75rem" : "0.875rem",
+                  }}
+                >
+                  <Typography
+                    variant={isMobile ? "subtitle2" : "h6"}
+                    sx={{ mb: isMobile ? 0.5 : 1, fontWeight: "bold" }}
+                  >
+                    Trip Summary
+                  </Typography>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="text.secondary"
+                    >
+                      Total Deliveries:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                    >
+                      {getTripSummary()?.totalDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="success.main"
+                    >
+                      ✓ Completed:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="success.main"
+                    >
+                      {getTripSummary()?.completedDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="error.main"
+                    >
+                      ✗ Failed:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="error.main"
+                    >
+                      {getTripSummary()?.failedDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="warning.main"
+                    >
+                      ⏳ Pending:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="warning.main"
+                    >
+                      {getTripSummary()?.pendingDeliveries}
+                    </Typography>
+                  </Box>
+
+                  <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
+
+                  <Box
+                    sx={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="text.secondary"
+                    >
+                      Trip Duration:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                    >
+                      {getTripSummary()?.duration}
+                    </Typography>
+                  </Box>
+                </Paper>
+              )}
             </Box>
           </Paper>
         </Box>
