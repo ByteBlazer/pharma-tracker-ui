@@ -182,6 +182,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         map: mapInstanceRef.current,
         title: markerData.title,
         icon: getMarkerIcon(markerData),
+        zIndex: markerData.type === "driver" ? 1000 : 100, // Driver markers always on top
       });
 
       // Add click listener
