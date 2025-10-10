@@ -551,6 +551,11 @@ const TripDashboard: React.FC = () => {
       });
     });
 
+    // Calculate dropoffs pending (doc groups where showDropOffButton is true)
+    const dropoffsPending = selectedTrip.docGroups.filter(
+      (docGroup) => docGroup.showDropOffButton
+    ).length;
+
     // Calculate trip duration
     const tripCreateTime = new Date(selectedTrip.createdAt);
     const now = new Date();
@@ -565,6 +570,7 @@ const TripDashboard: React.FC = () => {
       completedDeliveries,
       failedDeliveries,
       pendingDeliveries,
+      dropoffsPending,
       duration: `${durationHours}h ${durationMinutes}m`,
     };
   };
@@ -609,10 +615,11 @@ const TripDashboard: React.FC = () => {
     const customerMarkers: MapMarker[] = [];
     const selectedTripDriverMarker: MapMarker[] = [];
 
-    // Add customer markers for selected trip
+    // Add customer markers for selected trip (only for direct deliveries, not lots)
     selectedTrip.docGroups.forEach((docGroup) => {
       docGroup.docs.forEach((doc) => {
-        if (doc.customerGeoLatitude && doc.customerGeoLongitude) {
+        // Only show markers for documents WITHOUT a lot (direct deliveries only)
+        if (doc.customerGeoLatitude && doc.customerGeoLongitude && !doc.lot) {
           customerMarkers.push({
             id: `customer-${doc.id}`,
             position: {
@@ -958,6 +965,28 @@ const TripDashboard: React.FC = () => {
                     </Typography>
                   </Box>
 
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="info.main"
+                    >
+                      📦 Dropoffs Pending:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="info.main"
+                    >
+                      {getTripSummary()?.dropoffsPending}
+                    </Typography>
+                  </Box>
+
                   <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
 
                   <Box
@@ -967,7 +996,7 @@ const TripDashboard: React.FC = () => {
                       variant={isMobile ? "caption" : "body2"}
                       color="text.secondary"
                     >
-                      Trip Duration:
+                      Time Since Start Of Trip:
                     </Typography>
                     <Typography
                       variant={isMobile ? "caption" : "body2"}
