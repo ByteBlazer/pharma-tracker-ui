@@ -892,7 +892,7 @@ const TripDashboard: React.FC = () => {
                       variant={isMobile ? "caption" : "body2"}
                       color="text.secondary"
                     >
-                      Total Deliveries:
+                      Total Direct Deliveries:
                     </Typography>
                     <Typography
                       variant={isMobile ? "caption" : "body2"}
@@ -967,6 +967,8 @@ const TripDashboard: React.FC = () => {
                       {getTripSummary()?.pendingDeliveries}
                     </Typography>
                   </Box>
+
+                  <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
 
                   <Box
                     sx={{
