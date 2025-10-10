@@ -536,17 +536,20 @@ const TripDashboard: React.FC = () => {
 
     selectedTrip.docGroups.forEach((docGroup) => {
       docGroup.docs.forEach((doc) => {
-        totalDeliveries++;
-        switch (doc.status) {
-          case "DELIVERED":
-            completedDeliveries++;
-            break;
-          case "UNDELIVERED":
-            failedDeliveries++;
-            break;
-          default:
-            pendingDeliveries++;
-            break;
+        // Only count direct deliveries (documents without a lot)
+        if (!doc.lot) {
+          totalDeliveries++;
+          switch (doc.status) {
+            case "DELIVERED":
+              completedDeliveries++;
+              break;
+            case "UNDELIVERED":
+              failedDeliveries++;
+              break;
+            default:
+              pendingDeliveries++;
+              break;
+          }
         }
       });
     });
@@ -976,7 +979,7 @@ const TripDashboard: React.FC = () => {
                       variant={isMobile ? "caption" : "body2"}
                       color="info.main"
                     >
-                      📦 Dropoffs Pending:
+                      📦 Lot Dropoffs Pending:
                     </Typography>
                     <Typography
                       variant={isMobile ? "caption" : "body2"}
