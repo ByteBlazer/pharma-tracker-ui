@@ -965,6 +965,28 @@ const TripDashboard: React.FC = () => {
                     </Typography>
                   </Box>
 
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: isMobile ? 0.5 : 1,
+                    }}
+                  >
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      color="info.main"
+                    >
+                      📦 Dropoffs Pending:
+                    </Typography>
+                    <Typography
+                      variant={isMobile ? "caption" : "body2"}
+                      fontWeight="bold"
+                      color="info.main"
+                    >
+                      {getTripSummary()?.dropoffsPending}
+                    </Typography>
+                  </Box>
+
                   <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
 
                   <Box
@@ -974,7 +996,7 @@ const TripDashboard: React.FC = () => {
                       variant={isMobile ? "caption" : "body2"}
                       color="text.secondary"
                     >
-                      Trip Duration:
+                      Time Since Start Of Trip:
                     </Typography>
                     <Typography
                       variant={isMobile ? "caption" : "body2"}
