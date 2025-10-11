@@ -258,6 +258,23 @@ const PublicTracking: React.FC = () => {
     // Only initialize map if we have locations to show
     if (!customerLocation && !driverLastKnownLocation) return;
 
+    // Add CSS animation for blinking driver marker (if not already added)
+    if (!document.getElementById("driver-blink-style-tracking")) {
+      const style = document.createElement("style");
+      style.id = "driver-blink-style-tracking";
+      style.textContent = `
+        @keyframes driverBlink {
+          0%, 100% { 
+            opacity: 1;
+          }
+          50% { 
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     // Initialize map if not already initialized
     if (!mapInstanceRef.current) {
       const map = new window.google.maps.Map(mapRef.current, {
@@ -307,7 +324,19 @@ const PublicTracking: React.FC = () => {
           scaledSize: new window.google.maps.Size(75, 75),
           anchor: new window.google.maps.Point(37.5, 37.5),
         },
+        optimized: false, // Disable optimization to allow CSS animations
+        zIndex: 1000, // Ensure driver is above customer
       });
+
+      // Add pulsing animation to driver marker
+      setTimeout(() => {
+        const imgs = document.querySelectorAll('img[src="/truck-front.png"]');
+        imgs.forEach((img) => {
+          (img as HTMLElement).style.animation =
+            "driverBlink 1.5s ease-in-out infinite";
+        });
+      }, 100);
+
       markers.push(driverMarker);
       bounds.extend(driverMarker.getPosition());
     }

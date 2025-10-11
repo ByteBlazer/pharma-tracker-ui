@@ -24,6 +24,7 @@ import {
   Cancel,
   Warning,
   ConfirmationNumber,
+  Refresh,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
 import {
@@ -175,14 +176,37 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current = [];
 
+    // Add CSS animation for blinking driver markers (if not already added)
+    if (!document.getElementById("driver-blink-style")) {
+      const style = document.createElement("style");
+      style.id = "driver-blink-style";
+      style.textContent = `
+        @keyframes driverBlink {
+          0%, 100% { 
+            opacity: 1;
+          }
+          50% { 
+            opacity: 0;
+          }
+        }
+        .driver-marker-pulse {
+          animation: driverBlink 1.5s ease-in-out infinite;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
     // Add new markers
     markers.forEach((markerData) => {
+      const markerIcon = getMarkerIcon(markerData);
+
       const marker = new window.google.maps.Marker({
         position: markerData.position,
         map: mapInstanceRef.current,
         title: markerData.title,
-        icon: getMarkerIcon(markerData),
+        icon: markerIcon,
         zIndex: markerData.type === "driver" ? 1000 : 100, // Driver markers always on top
+        optimized: markerData.type === "driver" ? false : true, // Disable optimization for driver to allow animation
       });
 
       // Add click listener
@@ -195,6 +219,23 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
           onMarkerClick(markerData.tripId);
         }
       });
+
+      // Add pulsing class to driver markers
+      if (markerData.type === "driver") {
+        // Wait for marker to be added to DOM, then add animation class
+        setTimeout(() => {
+          const markerElement = marker.getIcon() as any;
+          if (markerElement && markerElement.url) {
+            // Find the img element in the DOM and add animation class
+            const imgs = document.querySelectorAll(
+              'img[src="/truck-front.png"]'
+            );
+            imgs.forEach((img) => {
+              img.classList.add("driver-marker-pulse");
+            });
+          }
+        }, 100);
+      }
 
       markersRef.current.push(marker);
     });
@@ -414,6 +455,8 @@ const TripDashboard: React.FC = () => {
     isLoading: tripsLoading,
     isError: tripsError,
     error: tripsErrorMsg,
+    refetch: refetchTrips,
+    isFetching: isFetchingTrips,
   } = useQuery<AllTripsResponse>({
     queryKey: ["all-trips"],
     queryFn: () => get(API_ENDPOINTS.ALL_TRIPS),
@@ -687,6 +730,12 @@ const TripDashboard: React.FC = () => {
 
   const trips = allTripsData?.trips || [];
 
+  // Handle refresh locations
+  const handleRefreshLocations = async () => {
+    // Re-fetch all trips data to get latest driver locations
+    await refetchTrips();
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" color="primary" sx={{ mb: 3 }}>
@@ -846,11 +895,33 @@ const TripDashboard: React.FC = () => {
         {/* Google Map */}
         <Box sx={{ flex: { xs: "1", md: "0 0 67%" } }}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              {selectedTripId
-                ? `Trip #${selectedTripId}`
-                : "Driver Locations - All Trips"}
-            </Typography>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+              }}
+            >
+              <Typography variant="h6">
+                {selectedTripId
+                  ? `Trip #${selectedTripId}`
+                  : "Driver Locations - All Trips"}
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={!isFetchingTrips && <Refresh />}
+                onClick={handleRefreshLocations}
+                disabled={isFetchingTrips}
+                sx={{
+                  minWidth: "auto",
+                  px: 2,
+                }}
+              >
+                {isFetchingTrips ? "Refreshing..." : "Refresh Locations"}
+              </Button>
+            </Box>
             <Box sx={{ position: "relative" }}>
               <GoogleMap
                 markers={mapMarkers}
