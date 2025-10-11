@@ -271,6 +271,9 @@ const PublicTracking: React.FC = () => {
             opacity: 0;
           }
         }
+        .driver-marker-pulse {
+          animation: driverBlink 1.5s ease-in-out infinite;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -332,8 +335,7 @@ const PublicTracking: React.FC = () => {
       setTimeout(() => {
         const imgs = document.querySelectorAll('img[src="/truck-front.png"]');
         imgs.forEach((img) => {
-          (img as HTMLElement).style.animation =
-            "driverBlink 1.5s ease-in-out infinite";
+          img.classList.add("driver-marker-pulse");
         });
       }, 100);
 
