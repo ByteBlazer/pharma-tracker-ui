@@ -11,6 +11,20 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Checkbox,
+  FormControlLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
 } from "@mui/material";
 import { LocationOn, CropFree, Backup, Restore } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,12 +32,21 @@ import { useApiService } from "../../hooks/useApiService";
 import { Setting } from "../../types/Setting";
 import { API_ENDPOINTS, SETTING_NAMES } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
+import {
+  BackupListResponse,
+  BackupFile,
+  RestoreBackupRequest,
+} from "../../types/Backup";
 
 const Settings: React.FC = () => {
   const { get, put, post } = useApiService();
   const queryClient = useQueryClient();
   const [coolOffValue, setCoolOffValue] = useState("");
   const [heartbeatValue, setHeartbeatValue] = useState("");
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+  const [selectedBackup, setSelectedBackup] = useState<BackupFile | null>(null);
+  const [restorePasskey, setRestorePasskey] = useState("");
+  const [confirmationChecked, setConfirmationChecked] = useState(false);
 
   // Fetch cool off setting
   const { data: coolOffSetting, isLoading: coolOffLoading } = useQuery<Setting>(
@@ -82,11 +105,33 @@ const Settings: React.FC = () => {
     },
   });
 
+  // Fetch backup list
+  const {
+    data: backupListData,
+    isLoading: backupsLoading,
+    refetch: refetchBackups,
+  } = useQuery<BackupListResponse>({
+    queryKey: ["backups"],
+    queryFn: () => get(API_ENDPOINTS.LIST_BACKUPS),
+  });
+
   // Create backup mutation
   const createBackupMutation = useMutation({
     mutationFn: () => post(API_ENDPOINTS.CREATE_BACKUP, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["backups"] });
+    },
+  });
+
+  // Restore backup mutation
+  const restoreBackupMutation = useMutation({
+    mutationFn: (request: RestoreBackupRequest) =>
+      post(API_ENDPOINTS.RESTORE_BACKUP, request),
+    onSuccess: () => {
+      // Log out user after successful restore
+      localStorage.removeItem("token");
+      sessionStorage.clear();
+      window.location.href = "/login";
     },
   });
 
@@ -113,6 +158,55 @@ const Settings: React.FC = () => {
 
   const handleCreateBackup = () => {
     createBackupMutation.mutate();
+  };
+
+  const handleOpenRestoreDialog = (backup: BackupFile) => {
+    setSelectedBackup(backup);
+    setRestoreDialogOpen(true);
+    setRestorePasskey("");
+    setConfirmationChecked(false);
+  };
+
+  const handleCloseRestoreDialog = () => {
+    setRestoreDialogOpen(false);
+    setSelectedBackup(null);
+    setRestorePasskey("");
+    setConfirmationChecked(false);
+    restoreBackupMutation.reset();
+  };
+
+  const handleRestoreConfirm = () => {
+    if (!selectedBackup || !restorePasskey || !confirmationChecked) return;
+
+    restoreBackupMutation.mutate({
+      filename: selectedBackup.filename,
+      passkey: restorePasskey,
+    });
+  };
+
+  // Helper function to parse environment from filename
+  const getEnvironmentFromFilename = (filename: string): string => {
+    const parts = filename.split("-on-");
+    const environment = parts[0].replace("pharmatracker-", "");
+    return environment;
+  };
+
+  // Helper function to format file size
+  const formatFileSize = (bytes: number): string => {
+    return (bytes / 1024 / 1024).toFixed(2) + " MB";
+  };
+
+  // Helper function to format date
+  const formatDate = (isoDate: string): string => {
+    const date = new Date(isoDate);
+    return date.toLocaleString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "Asia/Kolkata",
+    });
   };
 
   const handleCoolOffChange = (value: string) => {
@@ -343,26 +437,91 @@ const Settings: React.FC = () => {
         </Card>
 
         {/* Database Restore Card */}
-        <Card sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}>
+        <Card sx={{ flex: "1 1 600px", minWidth: "280px" }}>
           <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <Restore color="error" sx={{ mr: 2 }} />
-              <Typography variant="h6">Database Restore</Typography>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                mb: 2,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center" }}>
+                <Restore color="error" sx={{ mr: 2 }} />
+                <Typography variant="h6">Database Restore</Typography>
+              </Box>
+              <Button
+                size="small"
+                onClick={() => refetchBackups()}
+                disabled={backupsLoading}
+              >
+                Refresh
+              </Button>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               ⚠️ DESTRUCTIVE: Restore database from a backup file. This will
               delete all current data.
             </Typography>
-            <Button
-              variant="outlined"
-              color="error"
-              fullWidth
-              startIcon={<Restore />}
-              onClick={() => alert("Restore functionality coming soon...")}
-            >
-              Restore Database
-            </Button>
-            <Alert severity="warning" sx={{ mt: 2 }}>
+
+            {backupsLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+                <CircularProgress />
+              </Box>
+            ) : backupListData?.backups && backupListData.backups.length > 0 ? (
+              <TableContainer sx={{ maxHeight: 300, mb: 2 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Environment</TableCell>
+                      <TableCell>Date & Time</TableCell>
+                      <TableCell>Size</TableCell>
+                      <TableCell>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {backupListData.backups.map((backup) => {
+                      const environment = getEnvironmentFromFilename(
+                        backup.filename
+                      );
+                      const isProduction = environment === "production";
+
+                      return (
+                        <TableRow key={backup.filename}>
+                          <TableCell>
+                            <Chip
+                              label={environment.toUpperCase()}
+                              size="small"
+                              color={isProduction ? "error" : "info"}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {formatDate(backup.lastModified)}
+                          </TableCell>
+                          <TableCell>{formatFileSize(backup.size)}</TableCell>
+                          <TableCell>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleOpenRestoreDialog(backup)}
+                            >
+                              Restore
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                No backups available. Create a backup first.
+              </Alert>
+            )}
+
+            <Alert severity="warning">
               <Typography variant="caption">
                 Requires passkey and recent safety backup
               </Typography>
@@ -384,6 +543,105 @@ const Settings: React.FC = () => {
         condition={createBackupMutation.isPending}
         title="Creating backup... This may take a few minutes."
       />
+      <ModalInfiniteSpinner
+        condition={restoreBackupMutation.isPending}
+        title="Restoring database... Please do not refresh or close this page."
+      />
+
+      {/* Restore Confirmation Dialog */}
+      <Dialog
+        open={restoreDialogOpen}
+        onClose={handleCloseRestoreDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{ bgcolor: "error.main", color: "error.contrastText" }}
+        >
+          ⚠️ Restore Database - DESTRUCTIVE OPERATION
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {selectedBackup && (
+            <Box>
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                You are about to restore the database from:
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2" fontWeight="bold">
+                  {selectedBackup.filename}
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Environment:{" "}
+                  {getEnvironmentFromFilename(
+                    selectedBackup.filename
+                  ).toUpperCase()}
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Created: {formatDate(selectedBackup.lastModified)}
+                </Typography>
+                <Typography variant="caption">
+                  Size: {formatFileSize(selectedBackup.size)}
+                </Typography>
+              </Alert>
+
+              <Alert severity="error" sx={{ mb: 3 }}>
+                <Typography variant="body2" fontWeight="bold" gutterBottom>
+                  This will:
+                </Typography>
+                <Typography variant="body2">
+                  ❌ DELETE all current data in the database
+                </Typography>
+                <Typography variant="body2">
+                  ✅ REPLACE with data from the selected backup
+                </Typography>
+                <Typography variant="body2">⚠️ LOG OUT all users</Typography>
+              </Alert>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={confirmationChecked}
+                    onChange={(e) => setConfirmationChecked(e.target.checked)}
+                  />
+                }
+                label="I understand this will delete all current data"
+              />
+
+              <TextField
+                fullWidth
+                type="password"
+                label="Restore Passkey"
+                value={restorePasskey}
+                onChange={(e) => setRestorePasskey(e.target.value)}
+                sx={{ mt: 2 }}
+                placeholder="Enter restore passkey"
+              />
+
+              {restoreBackupMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {(restoreBackupMutation.error as any)?.message ||
+                    "Failed to restore backup. Please try again."}
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseRestoreDialog}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleRestoreConfirm}
+            disabled={
+              !confirmationChecked ||
+              !restorePasskey ||
+              restoreBackupMutation.isPending
+            }
+          >
+            Restore Database
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
