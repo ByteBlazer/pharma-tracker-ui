@@ -606,14 +606,28 @@ const TripDashboard: React.FC = () => {
       (docGroup) => docGroup.showDropOffButton
     ).length;
 
-    // Calculate trip time elapsed since start
-    const tripStartTime = new Date(selectedTrip.startedAt);
-    const now = new Date();
-    const durationMs = now.getTime() - tripStartTime.getTime();
-    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
-    const durationMinutes = Math.floor(
-      (durationMs % (1000 * 60 * 60)) / (1000 * 60)
-    );
+    // Calculate trip time elapsed since start (for STARTED and ENDED trips only)
+    let duration = null;
+    let durationLabel = "";
+
+    if (
+      selectedTrip.status === TripStatus.STARTED ||
+      selectedTrip.status === TripStatus.ENDED
+    ) {
+      const tripStartTime = new Date(selectedTrip.startedAt);
+      const now = new Date();
+      const durationMs = now.getTime() - tripStartTime.getTime();
+      const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+      const durationMinutes = Math.floor(
+        (durationMs % (1000 * 60 * 60)) / (1000 * 60)
+      );
+
+      duration = `${durationHours}h ${durationMinutes}m`;
+      durationLabel =
+        selectedTrip.status === TripStatus.ENDED
+          ? "Total Trip Duration:"
+          : "Time Since Start Of Trip:";
+    }
 
     return {
       totalDeliveries,
@@ -621,7 +635,8 @@ const TripDashboard: React.FC = () => {
       failedDeliveries,
       pendingDeliveries,
       dropoffsPending,
-      duration: `${durationHours}h ${durationMinutes}m`,
+      duration,
+      durationLabel,
     };
   };
 
@@ -1067,24 +1082,31 @@ const TripDashboard: React.FC = () => {
                     </Typography>
                   </Box>
 
-                  <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
+                  {getTripSummary()?.duration && (
+                    <>
+                      <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
 
-                  <Box
-                    sx={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <Typography
-                      variant={isMobile ? "caption" : "body2"}
-                      color="text.secondary"
-                    >
-                      Time Since Start Of Trip:
-                    </Typography>
-                    <Typography
-                      variant={isMobile ? "caption" : "body2"}
-                      fontWeight="bold"
-                    >
-                      {getTripSummary()?.duration}
-                    </Typography>
-                  </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <Typography
+                          variant={isMobile ? "caption" : "body2"}
+                          color="text.secondary"
+                        >
+                          {getTripSummary()?.durationLabel}
+                        </Typography>
+                        <Typography
+                          variant={isMobile ? "caption" : "body2"}
+                          fontWeight="bold"
+                        >
+                          {getTripSummary()?.duration}
+                        </Typography>
+                      </Box>
+                    </>
+                  )}
                 </Paper>
               )}
             </Box>
