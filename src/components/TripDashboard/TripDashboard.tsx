@@ -411,6 +411,10 @@ const TripCard: React.FC<TripCardProps> = ({ trip, isSelected, onClick }) => {
             </Typography>
             <br />
             <Typography variant="caption" color="text.secondary">
+              Started: {new Date(trip.startedAt).toLocaleString()}
+            </Typography>
+            <br />
+            <Typography variant="caption" color="text.secondary">
               Last Updated: {new Date(trip.lastUpdatedAt).toLocaleString()}
             </Typography>
 
@@ -602,14 +606,28 @@ const TripDashboard: React.FC = () => {
       (docGroup) => docGroup.showDropOffButton
     ).length;
 
-    // Calculate trip duration
-    const tripCreateTime = new Date(selectedTrip.createdAt);
-    const now = new Date();
-    const durationMs = now.getTime() - tripCreateTime.getTime();
-    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
-    const durationMinutes = Math.floor(
-      (durationMs % (1000 * 60 * 60)) / (1000 * 60)
-    );
+    // Calculate trip time elapsed since start (for STARTED and ENDED trips only)
+    let duration = null;
+    let durationLabel = "";
+
+    if (
+      selectedTrip.status === TripStatus.STARTED ||
+      selectedTrip.status === TripStatus.ENDED
+    ) {
+      const tripStartTime = new Date(selectedTrip.startedAt);
+      const now = new Date();
+      const durationMs = now.getTime() - tripStartTime.getTime();
+      const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+      const durationMinutes = Math.floor(
+        (durationMs % (1000 * 60 * 60)) / (1000 * 60)
+      );
+
+      duration = `${durationHours}h ${durationMinutes}m`;
+      durationLabel =
+        selectedTrip.status === TripStatus.ENDED
+          ? "Total Trip Duration:"
+          : "Time Since Start Of Trip:";
+    }
 
     return {
       totalDeliveries,
@@ -617,7 +635,8 @@ const TripDashboard: React.FC = () => {
       failedDeliveries,
       pendingDeliveries,
       dropoffsPending,
-      duration: `${durationHours}h ${durationMinutes}m`,
+      duration,
+      durationLabel,
     };
   };
 
@@ -1063,24 +1082,31 @@ const TripDashboard: React.FC = () => {
                     </Typography>
                   </Box>
 
-                  <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
+                  {getTripSummary()?.duration && (
+                    <>
+                      <Divider sx={{ my: isMobile ? 0.5 : 1 }} />
 
-                  <Box
-                    sx={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <Typography
-                      variant={isMobile ? "caption" : "body2"}
-                      color="text.secondary"
-                    >
-                      Time Since Start Of Trip:
-                    </Typography>
-                    <Typography
-                      variant={isMobile ? "caption" : "body2"}
-                      fontWeight="bold"
-                    >
-                      {getTripSummary()?.duration}
-                    </Typography>
-                  </Box>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <Typography
+                          variant={isMobile ? "caption" : "body2"}
+                          color="text.secondary"
+                        >
+                          {getTripSummary()?.durationLabel}
+                        </Typography>
+                        <Typography
+                          variant={isMobile ? "caption" : "body2"}
+                          fontWeight="bold"
+                        >
+                          {getTripSummary()?.duration}
+                        </Typography>
+                      </Box>
+                    </>
+                  )}
                 </Paper>
               )}
             </Box>

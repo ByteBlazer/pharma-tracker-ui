@@ -9,6 +9,7 @@ export interface Trip {
   route: string;
   createdAt: string;
   lastUpdatedAt: string;
+  startedAt: string;
   creatorLocation: string;
   driverLocation: string;
   driverLastKnownLatitude: string;
