@@ -12,13 +12,7 @@ import {
   Alert,
   CircularProgress,
 } from "@mui/material";
-import {
-  Timer,
-  LocationOn,
-  BarcodeReader,
-  DocumentScanner,
-  CropFree,
-} from "@mui/icons-material";
+import { LocationOn, CropFree, Backup, Restore } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiService } from "../../hooks/useApiService";
 import { Setting } from "../../types/Setting";
@@ -26,7 +20,7 @@ import { API_ENDPOINTS, SETTING_NAMES } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 
 const Settings: React.FC = () => {
-  const { get, put } = useApiService();
+  const { get, put, post } = useApiService();
   const queryClient = useQueryClient();
   const [coolOffValue, setCoolOffValue] = useState("");
   const [heartbeatValue, setHeartbeatValue] = useState("");
@@ -88,6 +82,14 @@ const Settings: React.FC = () => {
     },
   });
 
+  // Create backup mutation
+  const createBackupMutation = useMutation({
+    mutationFn: () => post(API_ENDPOINTS.CREATE_BACKUP, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backups"] });
+    },
+  });
+
   // Update local state when data is fetched
   useEffect(() => {
     if (coolOffSetting?.settingValue) {
@@ -107,6 +109,10 @@ const Settings: React.FC = () => {
 
   const handleHeartbeatSave = () => {
     heartbeatMutation.mutate(heartbeatValue);
+  };
+
+  const handleCreateBackup = () => {
+    createBackupMutation.mutate();
   };
 
   const handleCoolOffChange = (value: string) => {
@@ -292,6 +298,77 @@ const Settings: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Database Backup Card */}
+        <Card sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+              <Backup color="primary" sx={{ mr: 2 }} />
+              <Typography variant="h6">Database Backup</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Create a backup of the database. This will upload a compressed
+              backup file to S3 storage.
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={handleCreateBackup}
+              disabled={createBackupMutation.isPending}
+              fullWidth
+              startIcon={
+                createBackupMutation.isPending ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : (
+                  <Backup />
+                )
+              }
+            >
+              {createBackupMutation.isPending
+                ? "Creating Backup..."
+                : "Create Backup"}
+            </Button>
+            {createBackupMutation.isError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {(createBackupMutation.error as any)?.message ||
+                  "Failed to create backup. Please try again."}
+              </Alert>
+            )}
+            {createBackupMutation.isSuccess && (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                Backup created successfully:{" "}
+                {(createBackupMutation.data as any)?.filename}
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Database Restore Card */}
+        <Card sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+              <Restore color="error" sx={{ mr: 2 }} />
+              <Typography variant="h6">Database Restore</Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              ⚠️ DESTRUCTIVE: Restore database from a backup file. This will
+              delete all current data.
+            </Typography>
+            <Button
+              variant="outlined"
+              color="error"
+              fullWidth
+              startIcon={<Restore />}
+              onClick={() => alert("Restore functionality coming soon...")}
+            >
+              Restore Database
+            </Button>
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              <Typography variant="caption">
+                Requires passkey and recent safety backup
+              </Typography>
+            </Alert>
+          </CardContent>
+        </Card>
       </Box>
 
       {/* Loading Spinners for Save Operations */}
@@ -302,6 +379,10 @@ const Settings: React.FC = () => {
       <ModalInfiniteSpinner
         condition={heartbeatMutation.isPending}
         title="Saving Heartbeat Setting..."
+      />
+      <ModalInfiniteSpinner
+        condition={createBackupMutation.isPending}
+        title="Creating backup... This may take a few minutes."
       />
     </Box>
   );
