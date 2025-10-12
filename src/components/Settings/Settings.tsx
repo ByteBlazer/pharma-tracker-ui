@@ -26,7 +26,13 @@ import {
   TableRow,
   Chip,
 } from "@mui/material";
-import { LocationOn, CropFree, Backup, Restore } from "@mui/icons-material";
+import {
+  LocationOn,
+  CropFree,
+  Backup,
+  Restore,
+  Download,
+} from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiService } from "../../hooks/useApiService";
 import { Setting } from "../../types/Setting";
@@ -37,9 +43,12 @@ import {
   BackupFile,
   RestoreBackupRequest,
 } from "../../types/Backup";
+import { useContext } from "react";
+import { GlobalContext } from "../GlobalContextProvider";
 
 const Settings: React.FC = () => {
   const { get, put, post } = useApiService();
+  const { jwtToken } = useContext(GlobalContext);
   const queryClient = useQueryClient();
   const [coolOffValue, setCoolOffValue] = useState("");
   const [heartbeatValue, setHeartbeatValue] = useState("");
@@ -184,24 +193,68 @@ const Settings: React.FC = () => {
     });
   };
 
+  const handleDownloadBackup = async (filename: string) => {
+    try {
+      // Use the same authentication as other API calls
+      const response = await fetch(API_ENDPOINTS.DOWNLOAD_BACKUP(filename), {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Download failed: ${error.message}`);
+        return;
+      }
+
+      // Get the file as blob
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      alert("Failed to download backup file");
+    }
+  };
+
   // Helper function to parse backup info from filename
   // Format: pharmatracker-${env}-${type}-on-${date}-at-${time}.dump
+  // Example: pharmatracker-staging-Manual-on-2025-01-15-at-02-30-23-PM-IST.dump
   const parseBackupFilename = (filename: string) => {
-    const parts = filename.split("-on-");
-    const prefix = parts[0]; // pharmatracker-${env}-${type}
+    try {
+      const parts = filename.split("-on-");
+      const prefix = parts[0]; // pharmatracker-${env}-${type}
 
-    // Remove "pharmatracker-" prefix
-    const withoutApp = prefix.replace("pharmatracker-", "");
+      // Remove "pharmatracker-" prefix
+      const withoutApp = prefix.replace("pharmatracker-", ""); // staging-Manual
 
-    // Split by last hyphen to get environment and type
-    const lastHyphenIndex = withoutApp.lastIndexOf("-");
-    const environment = withoutApp.substring(0, lastHyphenIndex);
-    const type = withoutApp.substring(lastHyphenIndex + 1);
+      // Split by hyphen - first part is environment, second is type
+      const prefixParts = withoutApp.split("-");
+      const environment = prefixParts[0] || "unknown"; // staging or production
+      const type = prefixParts[1] || "Unknown"; // Auto or Manual
 
-    return {
-      environment,
-      type, // Auto or Manual
-    };
+      return {
+        environment,
+        type,
+      };
+    } catch (error) {
+      console.error("Error parsing backup filename:", filename, error);
+      return {
+        environment: "unknown",
+        type: "Unknown",
+      };
+    }
   };
 
   // Helper function to format file size
@@ -490,7 +543,7 @@ const Settings: React.FC = () => {
                       <TableCell>Type</TableCell>
                       <TableCell>Date & Time</TableCell>
                       <TableCell>Size</TableCell>
-                      <TableCell>Action</TableCell>
+                      <TableCell>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -499,7 +552,7 @@ const Settings: React.FC = () => {
                         backup.filename
                       );
                       const isProduction = environment === "production";
-                      const isAuto = type.toLowerCase() === "auto";
+                      const isAuto = type?.toLowerCase() === "auto";
 
                       return (
                         <TableRow key={backup.filename}>
@@ -523,14 +576,27 @@ const Settings: React.FC = () => {
                           </TableCell>
                           <TableCell>{formatFileSize(backup.size)}</TableCell>
                           <TableCell>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="error"
-                              onClick={() => handleOpenRestoreDialog(backup)}
-                            >
-                              Restore
-                            </Button>
+                            <Box sx={{ display: "flex", gap: 1 }}>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                startIcon={<Download />}
+                                onClick={() =>
+                                  handleDownloadBackup(backup.filename)
+                                }
+                              >
+                                Download
+                              </Button>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                onClick={() => handleOpenRestoreDialog(backup)}
+                              >
+                                Restore
+                              </Button>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       );
