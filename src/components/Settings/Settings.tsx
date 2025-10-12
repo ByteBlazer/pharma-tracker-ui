@@ -184,11 +184,24 @@ const Settings: React.FC = () => {
     });
   };
 
-  // Helper function to parse environment from filename
-  const getEnvironmentFromFilename = (filename: string): string => {
+  // Helper function to parse backup info from filename
+  // Format: pharmatracker-${env}-${type}-on-${date}-at-${time}.dump
+  const parseBackupFilename = (filename: string) => {
     const parts = filename.split("-on-");
-    const environment = parts[0].replace("pharmatracker-", "");
-    return environment;
+    const prefix = parts[0]; // pharmatracker-${env}-${type}
+
+    // Remove "pharmatracker-" prefix
+    const withoutApp = prefix.replace("pharmatracker-", "");
+
+    // Split by last hyphen to get environment and type
+    const lastHyphenIndex = withoutApp.lastIndexOf("-");
+    const environment = withoutApp.substring(0, lastHyphenIndex);
+    const type = withoutApp.substring(lastHyphenIndex + 1);
+
+    return {
+      environment,
+      type, // Auto or Manual
+    };
   };
 
   // Helper function to format file size
@@ -474,6 +487,7 @@ const Settings: React.FC = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell>Environment</TableCell>
+                      <TableCell>Type</TableCell>
                       <TableCell>Date & Time</TableCell>
                       <TableCell>Size</TableCell>
                       <TableCell>Action</TableCell>
@@ -481,10 +495,11 @@ const Settings: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {backupListData.backups.map((backup) => {
-                      const environment = getEnvironmentFromFilename(
+                      const { environment, type } = parseBackupFilename(
                         backup.filename
                       );
                       const isProduction = environment === "production";
+                      const isAuto = type.toLowerCase() === "auto";
 
                       return (
                         <TableRow key={backup.filename}>
@@ -493,6 +508,14 @@ const Settings: React.FC = () => {
                               label={environment.toUpperCase()}
                               size="small"
                               color={isProduction ? "error" : "info"}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={type}
+                              size="small"
+                              color={isAuto ? "default" : "success"}
+                              variant={isAuto ? "outlined" : "filled"}
                             />
                           </TableCell>
                           <TableCell>
@@ -572,9 +595,12 @@ const Settings: React.FC = () => {
                 </Typography>
                 <Typography variant="caption" display="block">
                   Environment:{" "}
-                  {getEnvironmentFromFilename(
+                  {parseBackupFilename(
                     selectedBackup.filename
-                  ).toUpperCase()}
+                  ).environment.toUpperCase()}
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Type: {parseBackupFilename(selectedBackup.filename).type}
                 </Typography>
                 <Typography variant="caption" display="block">
                   Created: {formatDate(selectedBackup.lastModified)}
