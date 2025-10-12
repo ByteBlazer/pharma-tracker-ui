@@ -411,6 +411,10 @@ const TripCard: React.FC<TripCardProps> = ({ trip, isSelected, onClick }) => {
             </Typography>
             <br />
             <Typography variant="caption" color="text.secondary">
+              Started: {new Date(trip.startedAt).toLocaleString()}
+            </Typography>
+            <br />
+            <Typography variant="caption" color="text.secondary">
               Last Updated: {new Date(trip.lastUpdatedAt).toLocaleString()}
             </Typography>
 
@@ -602,10 +606,10 @@ const TripDashboard: React.FC = () => {
       (docGroup) => docGroup.showDropOffButton
     ).length;
 
-    // Calculate trip duration
-    const tripCreateTime = new Date(selectedTrip.createdAt);
+    // Calculate trip time elapsed since start
+    const tripStartTime = new Date(selectedTrip.startedAt);
     const now = new Date();
-    const durationMs = now.getTime() - tripCreateTime.getTime();
+    const durationMs = now.getTime() - tripStartTime.getTime();
     const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
     const durationMinutes = Math.floor(
       (durationMs % (1000 * 60 * 60)) / (1000 * 60)
