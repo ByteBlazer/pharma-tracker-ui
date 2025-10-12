@@ -17,6 +17,9 @@ export const API_ENDPOINTS = {
   TRIP_DETAIL: (tripId: number) => `${API_BASE_URL}/trip/${tripId}`,
   DOC_TRACKING: (token: string) =>
     `${API_BASE_URL}/doc/tracking?token=${token}`,
+  CREATE_BACKUP: `${API_BASE_URL}/setting/backup`,
+  LIST_BACKUPS: `${API_BASE_URL}/setting/backups`,
+  RESTORE_BACKUP: `${API_BASE_URL}/setting/restore`,
 } as const;
 
 // Setting Names
