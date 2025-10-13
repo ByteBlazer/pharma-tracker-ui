@@ -9,6 +9,8 @@ import { GlobalContext } from "../GlobalContextProvider";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 import "./Login.css";
 import { useScreen, useLocalStorage } from "usehooks-ts";
+import { jwtDecode } from "jwt-decode";
+import { LoggedInUser } from "../../types/LoggedInUser";
 
 const defaultState = {
   loginPhoneNumber: "",
@@ -25,6 +27,7 @@ const defaultState = {
   validateOtpFailure: false,
   counterToResendOtp: 0,
   invalidJwtToken: false,
+  missingWebAccessRole: false,
 };
 
 const OTP_COUNTER = 10;
@@ -42,6 +45,7 @@ const actionTypes = {
   DECREMENT_COUNTDOWN: "DECREMENT_COUNTDOWN",
   WRONG_OTP: "WRONG_OTP",
   INVALID_JWT_TOKEN: "INVALID_JWT_TOKEN",
+  MISSING_WEB_ACCESS_ROLE: "MISSING_WEB_ACCESS_ROLE",
 };
 
 const reducer = (state: any, action: any) => {
@@ -81,6 +85,7 @@ const reducer = (state: any, action: any) => {
         otp: "",
         validateOtpRequested: false,
         wrongOtp: false,
+        missingWebAccessRole: false,
       };
     case actionTypes.SET_OTP:
       return {
@@ -89,6 +94,7 @@ const reducer = (state: any, action: any) => {
         invalidCharactersOtp:
           action.payload === "" ? false : !/^[0-9]+$/.test(action.payload),
         wrongOtp: false, // Clear error when user types
+        missingWebAccessRole: false, // Clear error when user types
       };
     case actionTypes.VALIDATE_OTP:
       return {
@@ -108,6 +114,13 @@ const reducer = (state: any, action: any) => {
       return { ...state, counterToResendOtp: state.counterToResendOtp - 1 };
     case actionTypes.INVALID_JWT_TOKEN:
       return { ...state, invalidJwtToken: true };
+    case actionTypes.MISSING_WEB_ACCESS_ROLE:
+      return {
+        ...state,
+        missingWebAccessRole: true,
+        validateOtpRequested: false,
+        otpRequested: true,
+      };
   }
 };
 
@@ -217,11 +230,30 @@ function Login({ appName }: { appName: string }) {
     },
     onSuccess: async (response) => {
       const data = await response.json();
+      const accessToken = data.access_token;
 
-      setJwtToken(data.access_token);
-      // Store the mobile number in localStorage for future logins
-      setLastUsedMobileNumber(state.loginPhoneNumber);
-      // Navigation will be handled by useEffect when token becomes valid
+      // Decode token to check for web-access role
+      try {
+        const decodedToken = jwtDecode<LoggedInUser>(accessToken);
+        const roles = decodedToken.roles
+          ? decodedToken.roles.split(",").map((r) => r.trim())
+          : [];
+
+        // Check if user has 'web-access' role
+        if (!roles.includes("web-access")) {
+          dispatch({ type: actionTypes.MISSING_WEB_ACCESS_ROLE });
+          return;
+        }
+
+        // If web-access role exists, proceed with login
+        setJwtToken(accessToken);
+        // Store the mobile number in localStorage for future logins
+        setLastUsedMobileNumber(state.loginPhoneNumber);
+        // Navigation will be handled by useEffect when token becomes valid
+      } catch (error) {
+        console.error("Failed to decode token or check roles:", error);
+        dispatch({ type: actionTypes.INVALID_JWT_TOKEN });
+      }
     },
     onError: (error) => {
       if ((error as any).status === StatusCodes.UNAUTHORIZED) {
@@ -371,7 +403,8 @@ function Login({ appName }: { appName: string }) {
                     state.invalidCharactersOtp ||
                     state.wrongOtp ||
                     state.validateOtpFailure ||
-                    state.invalidJwtToken
+                    state.invalidJwtToken ||
+                    state.missingWebAccessRole
                   }
                   value={state.otp}
                   id="outlined-error"
@@ -386,6 +419,8 @@ function Login({ appName }: { appName: string }) {
                       ? "Failed to validate OTP."
                       : state.invalidJwtToken
                       ? "Invalid Authentication Token"
+                      : state.missingWebAccessRole
+                      ? "Access Denied: Your account does not have web access permission. Please contact your administrator."
                       : " "
                   }
                   slotProps={{

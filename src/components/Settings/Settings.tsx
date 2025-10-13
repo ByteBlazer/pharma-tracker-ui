@@ -32,6 +32,7 @@ import {
   Backup,
   Restore,
   Download,
+  Sync,
 } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiService } from "../../hooks/useApiService";
@@ -52,6 +53,7 @@ const Settings: React.FC = () => {
   const queryClient = useQueryClient();
   const [coolOffValue, setCoolOffValue] = useState("");
   const [heartbeatValue, setHeartbeatValue] = useState("");
+  const [updateDocStatusValue, setUpdateDocStatusValue] = useState("");
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<BackupFile | null>(null);
   const [restorePasskey, setRestorePasskey] = useState("");
@@ -83,6 +85,14 @@ const Settings: React.FC = () => {
         ),
     });
 
+  // Fetch update doc status setting
+  const { data: updateDocStatusSetting, isLoading: updateDocStatusLoading } =
+    useQuery<Setting>({
+      queryKey: ["setting", SETTING_NAMES.UPDATE_DOC_STATUS_TO_ERP],
+      queryFn: () =>
+        get(API_ENDPOINTS.SETTING(SETTING_NAMES.UPDATE_DOC_STATUS_TO_ERP)),
+    });
+
   // Update cool off setting mutation
   const coolOffMutation = useMutation({
     mutationFn: (value: string) =>
@@ -110,6 +120,20 @@ const Settings: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["setting", SETTING_NAMES.MINS_BETWEEN_LOCATION_HEARTBEATS],
+      });
+    },
+  });
+
+  // Update doc status setting mutation
+  const updateDocStatusMutation = useMutation({
+    mutationFn: (value: string) =>
+      put(API_ENDPOINTS.UPDATE_SETTING, {
+        settingName: SETTING_NAMES.UPDATE_DOC_STATUS_TO_ERP,
+        settingValue: value,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["setting", SETTING_NAMES.UPDATE_DOC_STATUS_TO_ERP],
       });
     },
   });
@@ -157,12 +181,22 @@ const Settings: React.FC = () => {
     }
   }, [heartbeatSetting]);
 
+  useEffect(() => {
+    if (updateDocStatusSetting?.settingValue) {
+      setUpdateDocStatusValue(updateDocStatusSetting.settingValue);
+    }
+  }, [updateDocStatusSetting]);
+
   const handleCoolOffSave = () => {
     coolOffMutation.mutate(coolOffValue);
   };
 
   const handleHeartbeatSave = () => {
     heartbeatMutation.mutate(heartbeatValue);
+  };
+
+  const handleUpdateDocStatusSave = () => {
+    updateDocStatusMutation.mutate(updateDocStatusValue);
   };
 
   const handleCreateBackup = () => {
@@ -291,6 +325,14 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleUpdateDocStatusChange = (value: string) => {
+    setUpdateDocStatusValue(value);
+    // Reset mutation state when user changes value
+    if (updateDocStatusMutation.isSuccess) {
+      updateDocStatusMutation.reset();
+    }
+  };
+
   // Cool off options (seconds)
   const coolOffOptions = [
     { value: "30", label: "30 seconds" },
@@ -327,7 +369,7 @@ const Settings: React.FC = () => {
       : []),
   ];
 
-  if (coolOffLoading || heartbeatLoading) {
+  if (coolOffLoading || heartbeatLoading || updateDocStatusLoading) {
     return (
       <Box
         sx={{
@@ -344,279 +386,403 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3, maxWidth: 800, mx: "auto" }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" color="primary" gutterBottom>
-          Mobile App Settings
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-          Manage your mobile app settings
-        </Typography>
-        <Alert severity="warning" sx={{ maxWidth: 600 }}>
-          <Typography variant="body2">
-            <strong>Global Settings Warning:</strong> These settings are global
-            and will affect all users of the mobile app. Please exercise caution
-            when modifying these values as changes will impact the entire
-            system.
+    <Box sx={{ p: 3 }}>
+      {/* Page Header */}
+      <Typography
+        variant="h4"
+        component="h1"
+        color="primary"
+        gutterBottom
+        sx={{ mb: 4 }}
+      >
+        Settings
+      </Typography>
+
+      {/* Mobile App Settings Section */}
+      <Box sx={{ mb: 6 }}>
+        <Box sx={{ mb: 3, textAlign: "center" }}>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Mobile App Settings
           </Typography>
-        </Alert>
-      </Box>
-
-      {/* Settings Cards */}
-      <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-        {/* Heartbeat Setting */}
-        <Card sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <LocationOn color="primary" sx={{ mr: 2 }} />
-              <Typography variant="h6">Location Heartbeat</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              The frequency at which location updates are sent to the server,
-              from the mobile app.
-            </Typography>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Heartbeat Interval</InputLabel>
-              <Select
-                value={heartbeatValue || ""}
-                onChange={(e) => handleHeartbeatChange(e.target.value)}
-                label="Heartbeat Interval"
-                displayEmpty
-              >
-                {allHeartbeatOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              onClick={handleHeartbeatSave}
-              disabled={heartbeatMutation.isPending}
-              fullWidth
-            >
-              {heartbeatMutation.isPending ? "Saving..." : "Save Setting"}
-            </Button>
-            {heartbeatMutation.isError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Failed to save setting. Please try again.
-              </Alert>
-            )}
-            {heartbeatMutation.isSuccess && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Setting saved successfully!
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Cool Off Setting */}
-        <Card sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <CropFree color="primary" sx={{ mr: 2 }} />
-              <Typography variant="h6">Route Scan Cool Off</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              The time interval after which scans from a different route is
-              permitted, in the mobile app.
-            </Typography>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Cool Off Period</InputLabel>
-              <Select
-                value={coolOffValue || ""}
-                onChange={(e) => handleCoolOffChange(e.target.value)}
-                label="Cool Off Period"
-                displayEmpty
-              >
-                {allCoolOffOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              onClick={handleCoolOffSave}
-              disabled={coolOffMutation.isPending}
-              fullWidth
-            >
-              {coolOffMutation.isPending ? "Saving..." : "Save Setting"}
-            </Button>
-            {coolOffMutation.isError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Failed to save setting. Please try again.
-              </Alert>
-            )}
-            {coolOffMutation.isSuccess && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Setting saved successfully!
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Database Backup Card */}
-        <Card sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <Backup color="primary" sx={{ mr: 2 }} />
-              <Typography variant="h6">Database Backup</Typography>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Create a backup of the database. This will upload a compressed
-              backup file to S3 storage.
-            </Typography>
-            <Button
-              variant="contained"
-              onClick={handleCreateBackup}
-              disabled={createBackupMutation.isPending}
-              fullWidth
-              startIcon={
-                createBackupMutation.isPending ? (
-                  <CircularProgress size={20} color="inherit" />
-                ) : (
-                  <Backup />
-                )
-              }
-            >
-              {createBackupMutation.isPending
-                ? "Creating Backup..."
-                : "Create Backup"}
-            </Button>
-            {createBackupMutation.isError && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                {(createBackupMutation.error as any)?.message ||
-                  "Failed to create backup. Please try again."}
-              </Alert>
-            )}
-            {createBackupMutation.isSuccess && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                Backup created successfully:{" "}
-                {(createBackupMutation.data as any)?.filename}
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Database Restore Card */}
-        <Card sx={{ flex: "1 1 600px", minWidth: "280px" }}>
-          <CardContent sx={{ p: 3 }}>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                mb: 2,
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Restore color="error" sx={{ mr: 2 }} />
-                <Typography variant="h6">Database Restore</Typography>
-              </Box>
-              <Button
-                size="small"
-                onClick={() => refetchBackups()}
-                disabled={backupsLoading}
-              >
-                Refresh
-              </Button>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              ⚠️ DESTRUCTIVE: Restore database from a backup file. This will
-              delete all current data.
-            </Typography>
-
-            {backupsLoading ? (
-              <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
-                <CircularProgress />
-              </Box>
-            ) : backupListData?.backups && backupListData.backups.length > 0 ? (
-              <TableContainer sx={{ maxHeight: 300, mb: 2 }}>
-                <Table size="small" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Environment</TableCell>
-                      <TableCell>Type</TableCell>
-                      <TableCell>Date & Time</TableCell>
-                      <TableCell>Size</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {backupListData.backups.map((backup) => {
-                      const { environment, type } = parseBackupFilename(
-                        backup.filename
-                      );
-                      const isProduction = environment === "production";
-                      const isAuto = type?.toLowerCase() === "auto";
-
-                      return (
-                        <TableRow key={backup.filename}>
-                          <TableCell>
-                            <Chip
-                              label={environment.toUpperCase()}
-                              size="small"
-                              color={isProduction ? "error" : "info"}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={type}
-                              size="small"
-                              color={isAuto ? "default" : "success"}
-                              variant={isAuto ? "outlined" : "filled"}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(backup.lastModified)}
-                          </TableCell>
-                          <TableCell>{formatFileSize(backup.size)}</TableCell>
-                          <TableCell>
-                            <Box sx={{ display: "flex", gap: 1 }}>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                                startIcon={<Download />}
-                                onClick={() =>
-                                  handleDownloadBackup(backup.filename)
-                                }
-                              >
-                                Download
-                              </Button>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="error"
-                                onClick={() => handleOpenRestoreDialog(backup)}
-                              >
-                                Restore
-                              </Button>
-                            </Box>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                No backups available. Create a backup first.
-              </Alert>
-            )}
-
-            <Alert severity="warning">
-              <Typography variant="caption">
-                Requires passkey and recent safety backup
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            Manage settings for the mobile app
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "center" }}>
+            <Alert severity="warning" sx={{ maxWidth: 800 }}>
+              <Typography variant="body2">
+                <strong>Global Settings Warning:</strong> These settings are
+                global and will affect all users of the mobile app. Please
+                exercise caution when modifying these values as changes will
+                impact the entire system.
               </Typography>
             </Alert>
-          </CardContent>
-        </Card>
+          </Box>
+        </Box>
+
+        {/* Mobile App Settings Cards */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 3,
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
+          {/* Heartbeat Setting */}
+          <Card
+            sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <LocationOn color="primary" sx={{ mr: 2 }} />
+                <Typography variant="h6">Location Heartbeat</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                The frequency at which location updates are sent to the server,
+                from the mobile app.
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Heartbeat Interval</InputLabel>
+                <Select
+                  value={heartbeatValue || ""}
+                  onChange={(e) => handleHeartbeatChange(e.target.value)}
+                  label="Heartbeat Interval"
+                  displayEmpty
+                >
+                  {allHeartbeatOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                onClick={handleHeartbeatSave}
+                disabled={heartbeatMutation.isPending}
+                fullWidth
+              >
+                {heartbeatMutation.isPending ? "Saving..." : "Save Setting"}
+              </Button>
+              {heartbeatMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  Failed to save setting. Please try again.
+                </Alert>
+              )}
+              {heartbeatMutation.isSuccess && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Setting saved successfully!
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Cool Off Setting */}
+          <Card
+            sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <CropFree color="primary" sx={{ mr: 2 }} />
+                <Typography variant="h6">Route Scan Cool Off</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                The time interval after which scans from a different route is
+                permitted, in the mobile app.
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Cool Off Period</InputLabel>
+                <Select
+                  value={coolOffValue || ""}
+                  onChange={(e) => handleCoolOffChange(e.target.value)}
+                  label="Cool Off Period"
+                  displayEmpty
+                >
+                  {allCoolOffOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                onClick={handleCoolOffSave}
+                disabled={coolOffMutation.isPending}
+                fullWidth
+              >
+                {coolOffMutation.isPending ? "Saving..." : "Save Setting"}
+              </Button>
+              {coolOffMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  Failed to save setting. Please try again.
+                </Alert>
+              )}
+              {coolOffMutation.isSuccess && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Setting saved successfully!
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Update Doc Status to ERP Setting */}
+          <Card
+            sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <Sync color="primary" sx={{ mr: 2 }} />
+                <Typography variant="h6">Update Doc Status to ERP</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Controls whether document status updates are sent to the ERP
+                system from the mobile app.
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Enable ERP Updates</InputLabel>
+                <Select
+                  value={updateDocStatusValue || ""}
+                  onChange={(e) => handleUpdateDocStatusChange(e.target.value)}
+                  label="Enable ERP Updates"
+                  displayEmpty
+                >
+                  <MenuItem value="true">Enabled</MenuItem>
+                  <MenuItem value="false">Disabled</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                onClick={handleUpdateDocStatusSave}
+                disabled={updateDocStatusMutation.isPending}
+                fullWidth
+              >
+                {updateDocStatusMutation.isPending
+                  ? "Saving..."
+                  : "Save Setting"}
+              </Button>
+              {updateDocStatusMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  Failed to save setting. Please try again.
+                </Alert>
+              )}
+              {updateDocStatusMutation.isSuccess && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Setting saved successfully!
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
+
+      {/* Database Management Section */}
+      <Box sx={{ mb: 6 }}>
+        <Box sx={{ mb: 3, textAlign: "center" }}>
+          <Typography variant="h5" component="h2" gutterBottom>
+            Database Management
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Backup and restore database operations
+          </Typography>
+        </Box>
+
+        {/* Database Management Cards */}
+        <Box
+          sx={{
+            display: "flex",
+            gap: 3,
+            flexWrap: "wrap",
+            justifyContent: "center",
+          }}
+        >
+          {/* Database Backup Card */}
+          <Card
+            sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <Backup color="primary" sx={{ mr: 2 }} />
+                <Typography variant="h6">Database Backup</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Create a backup of the database. This will upload a compressed
+                backup file to S3 storage.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={handleCreateBackup}
+                disabled={createBackupMutation.isPending}
+                fullWidth
+                startIcon={
+                  createBackupMutation.isPending ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    <Backup />
+                  )
+                }
+              >
+                {createBackupMutation.isPending
+                  ? "Creating Backup..."
+                  : "Create Backup"}
+              </Button>
+              {createBackupMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {(createBackupMutation.error as any)?.message ||
+                    "Failed to create backup. Please try again."}
+                </Alert>
+              )}
+              {createBackupMutation.isSuccess && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Backup created successfully:{" "}
+                  {(createBackupMutation.data as any)?.filename}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Database Restore Card - Full Width Row */}
+          <Box
+            sx={{
+              flexBasis: "100%",
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
+            <Card sx={{ width: "100%", maxWidth: "900px", minWidth: "280px" }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    mb: 2,
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <Restore color="error" sx={{ mr: 2 }} />
+                    <Typography variant="h6">Database Restore</Typography>
+                  </Box>
+                  <Button
+                    size="small"
+                    onClick={() => refetchBackups()}
+                    disabled={backupsLoading}
+                  >
+                    Refresh
+                  </Button>
+                </Box>
+
+                <Alert severity="error" sx={{ mb: 3 }}>
+                  <Typography variant="body2">
+                    <strong>Danger Zone:</strong> Database restore is a
+                    destructive operation that will delete all current data.
+                    Always create a backup before restoring.
+                  </Typography>
+                </Alert>
+
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 3 }}
+                >
+                  Restore database from a backup file. Select a backup from the
+                  list below.
+                </Typography>
+
+                {backupsLoading ? (
+                  <Box sx={{ display: "flex", justifyContent: "center", p: 3 }}>
+                    <CircularProgress />
+                  </Box>
+                ) : backupListData?.backups &&
+                  backupListData.backups.length > 0 ? (
+                  <TableContainer sx={{ maxHeight: 300, mb: 2 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Environment</TableCell>
+                          <TableCell>Type</TableCell>
+                          <TableCell>Date & Time</TableCell>
+                          <TableCell>Size</TableCell>
+                          <TableCell>Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {backupListData.backups.map((backup) => {
+                          const { environment, type } = parseBackupFilename(
+                            backup.filename
+                          );
+                          const isProduction = environment === "production";
+                          const isAuto = type?.toLowerCase() === "auto";
+
+                          return (
+                            <TableRow key={backup.filename}>
+                              <TableCell>
+                                <Chip
+                                  label={environment.toUpperCase()}
+                                  size="small"
+                                  color={isProduction ? "error" : "info"}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={type}
+                                  size="small"
+                                  color={isAuto ? "default" : "success"}
+                                  variant={isAuto ? "outlined" : "filled"}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                {formatDate(backup.lastModified)}
+                              </TableCell>
+                              <TableCell>
+                                {formatFileSize(backup.size)}
+                              </TableCell>
+                              <TableCell>
+                                <Box sx={{ display: "flex", gap: 1 }}>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<Download />}
+                                    onClick={() =>
+                                      handleDownloadBackup(backup.filename)
+                                    }
+                                  >
+                                    Download
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() =>
+                                      handleOpenRestoreDialog(backup)
+                                    }
+                                  >
+                                    Restore
+                                  </Button>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                ) : (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    No backups available. Create a backup first.
+                  </Alert>
+                )}
+
+                <Alert severity="warning">
+                  <Typography variant="caption">
+                    Passkey is required for restore.
+                  </Typography>
+                </Alert>
+              </CardContent>
+            </Card>
+          </Box>
+        </Box>
       </Box>
 
       {/* Loading Spinners for Save Operations */}
@@ -627,6 +793,10 @@ const Settings: React.FC = () => {
       <ModalInfiniteSpinner
         condition={heartbeatMutation.isPending}
         title="Saving Heartbeat Setting..."
+      />
+      <ModalInfiniteSpinner
+        condition={updateDocStatusMutation.isPending}
+        title="Saving ERP Update Setting..."
       />
       <ModalInfiniteSpinner
         condition={createBackupMutation.isPending}
