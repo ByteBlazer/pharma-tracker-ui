@@ -1,0 +1,21 @@
+:root {
+  --font-family: "Inter", "Roboto", "-apple-system", "BlinkMacSystemFont",
+    '"Segoe UI"', "Arial", "sans-serif";
+  --primary-color: #49979b;
+  /* --primary-color: #1976d2; */
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: var(--font-family);
+}
+
+html {
+  font-family: var(--font-family);
+}
+
+body {
+  font-family: var(--font-family);
+}
