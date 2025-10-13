@@ -1020,8 +1020,8 @@ const TripDashboard: React.FC = () => {
                   : activeTab === 0
                   ? "Showing All Ongoing Trips - Driver Locations"
                   : activeTab === 1
-                  ? "Showing All Scheduled Trips - Driver Locations"
-                  : "Showing All Ended Trips - Driver Locations"}
+                  ? "Select a Trip to View Details"
+                  : "Select a Trip to View Details"}
               </Typography>
               <Box sx={{ display: "flex", gap: 1 }}>
                 {selectedTripId && (
