@@ -15,6 +15,8 @@ export const API_ENDPOINTS = {
   UPDATE_SETTING: `${API_BASE_URL}/setting`,
   ALL_TRIPS: `${API_BASE_URL}/trip/all-trips`,
   TRIP_DETAIL: (tripId: number) => `${API_BASE_URL}/trip/${tripId}`,
+  FORCE_END_TRIP: (tripId: number) =>
+    `${API_BASE_URL}/trip/force-end/${tripId}`,
   DOC_TRACKING: (token: string) =>
     `${API_BASE_URL}/doc/tracking?token=${token}`,
   CREATE_BACKUP: `${API_BASE_URL}/setting/backup`,
@@ -29,4 +31,5 @@ export const SETTING_NAMES = {
   COOL_OFF_SECONDS_BTWN_DIFF_ROUTE_SCANS:
     "COOL_OFF_SECONDS_BTWN_DIFF_ROUTE_SCANS",
   MINS_BETWEEN_LOCATION_HEARTBEATS: "MINS_BETWEEN_LOCATION_HEARTBEATS",
+  UPDATE_DOC_STATUS_TO_ERP: "UPDATE_DOC_STATUS_TO_ERP",
 } as const;

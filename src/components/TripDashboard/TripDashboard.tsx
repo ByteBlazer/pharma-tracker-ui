@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Typography,
@@ -15,6 +15,11 @@ import {
   Tabs,
   Tab,
   Popover,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
 } from "@mui/material";
 import {
   DirectionsCar,
@@ -25,6 +30,8 @@ import {
   Warning,
   ConfirmationNumber,
   Refresh,
+  StopCircle,
+  Map,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
 import {
@@ -283,9 +290,15 @@ interface TripCardProps {
   trip: Trip;
   isSelected: boolean;
   onClick: () => void;
+  onForceEndClick?: (tripId: number) => void;
 }
 
-const TripCard: React.FC<TripCardProps> = ({ trip, isSelected, onClick }) => {
+const TripCard: React.FC<TripCardProps> = ({
+  trip,
+  isSelected,
+  onClick,
+  onForceEndClick,
+}) => {
   const theme = useTheme();
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -418,6 +431,27 @@ const TripCard: React.FC<TripCardProps> = ({ trip, isSelected, onClick }) => {
               Last Updated: {new Date(trip.lastUpdatedAt).toLocaleString()}
             </Typography>
 
+            {/* Force End Trip Button - Only for ongoing trips */}
+            {trip.status === TripStatus.STARTED && onForceEndClick && (
+              <>
+                <Divider sx={{ my: 1.5 }} />
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="small"
+                  fullWidth
+                  startIcon={<StopCircle />}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onForceEndClick(trip.tripId);
+                  }}
+                  sx={{ mb: 1 }}
+                >
+                  Force End Trip
+                </Button>
+              </>
+            )}
+
             <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
               <Typography
                 variant="body2"
@@ -443,7 +477,8 @@ const TripCard: React.FC<TripCardProps> = ({ trip, isSelected, onClick }) => {
 
 // Main TripDashboard component
 const TripDashboard: React.FC = () => {
-  const { get } = useApiService();
+  const { get, post } = useApiService();
+  const queryClient = useQueryClient();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -452,6 +487,9 @@ const TripDashboard: React.FC = () => {
   const [showGuidance, setShowGuidance] = useState(false);
   const firstCardRef = useRef<HTMLDivElement>(null);
   const guidanceTimerRef = useRef<number | null>(null);
+  const [forceEndDialogOpen, setForceEndDialogOpen] = useState(false);
+  const [tripToForceEnd, setTripToForceEnd] = useState<number | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string>("");
 
   // Fetch all trips
   const {
@@ -471,6 +509,34 @@ const TripDashboard: React.FC = () => {
     queryKey: ["trip-detail", selectedTripId],
     queryFn: () => get(API_ENDPOINTS.TRIP_DETAIL(selectedTripId!)),
     enabled: !!selectedTripId,
+  });
+
+  // Force end trip mutation
+  const forceEndTripMutation = useMutation({
+    mutationFn: (tripId: number) =>
+      post(API_ENDPOINTS.FORCE_END_TRIP(tripId), {}),
+    onSuccess: () => {
+      // Invalidate and refetch trips
+      queryClient.invalidateQueries({ queryKey: ["all-trips"] });
+      if (selectedTripId) {
+        queryClient.invalidateQueries({
+          queryKey: ["trip-detail", selectedTripId],
+        });
+      }
+      // Close dialog and show success message
+      setForceEndDialogOpen(false);
+      setTripToForceEnd(null);
+      setSuccessMessage(
+        "Trip has been force ended successfully. All pending deliveries have been marked as undelivered."
+      );
+      // Deselect the trip
+      setSelectedTripId(null);
+    },
+    onError: (error) => {
+      console.error("Failed to force end trip:", error);
+      setForceEndDialogOpen(false);
+      setTripToForceEnd(null);
+    },
   });
 
   // Handle trip selection/deselection
@@ -493,6 +559,30 @@ const TripDashboard: React.FC = () => {
       // Select the new trip
       setSelectedTripId(tripId);
     }
+  };
+
+  // Handle force end trip click
+  const handleForceEndClick = (tripId: number) => {
+    setTripToForceEnd(tripId);
+    setForceEndDialogOpen(true);
+  };
+
+  // Handle force end confirmation
+  const handleForceEndConfirm = () => {
+    if (tripToForceEnd) {
+      forceEndTripMutation.mutate(tripToForceEnd);
+    }
+  };
+
+  // Handle force end dialog close
+  const handleForceEndDialogClose = () => {
+    setForceEndDialogOpen(false);
+    setTripToForceEnd(null);
+  };
+
+  // Handle success snackbar close
+  const handleSuccessSnackbarClose = () => {
+    setSuccessMessage("");
   };
 
   // Show guidance when trips are loaded (only for Ongoing tab with trips, and only once per session)
@@ -835,6 +925,7 @@ const TripDashboard: React.FC = () => {
                       trip={trip}
                       isSelected={selectedTripId === trip.tripId}
                       onClick={() => handleTripSelect(trip.tripId)}
+                      onForceEndClick={handleForceEndClick}
                     />
                   </Box>
                 ))
@@ -920,26 +1011,51 @@ const TripDashboard: React.FC = () => {
                 justifyContent: "space-between",
                 alignItems: "center",
                 mb: 2,
+                gap: 1,
               }}
             >
               <Typography variant="h6">
-                {selectedTripId
+                {selectedTripId && selectedTrip
+                  ? `Trip #${selectedTripId} - ${selectedTrip.route}`
+                  : selectedTripId
                   ? `Trip #${selectedTripId}`
-                  : "Driver Locations - All Trips"}
+                  : activeTab === 0
+                  ? "Showing All Ongoing Trips - Driver Locations"
+                  : activeTab === 1
+                  ? "Showing All Scheduled Trips - Driver Locations"
+                  : "Showing All Ended Trips - Driver Locations"}
               </Typography>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={!isFetchingTrips && <Refresh />}
-                onClick={handleRefreshLocations}
-                disabled={isFetchingTrips}
-                sx={{
-                  minWidth: "auto",
-                  px: 2,
-                }}
-              >
-                {isFetchingTrips ? "Refreshing..." : "Refresh Locations"}
-              </Button>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                {selectedTripId && (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<Map />}
+                    onClick={() => setSelectedTripId(null)}
+                    sx={{
+                      minWidth: "auto",
+                      px: 2,
+                    }}
+                  >
+                    {activeTab === 0 && "Show All Ongoing Trips"}
+                    {activeTab === 1 && "Show All Scheduled Trips"}
+                    {activeTab === 2 && "Show All Ended Trips"}
+                  </Button>
+                )}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={!isFetchingTrips && <Refresh />}
+                  onClick={handleRefreshLocations}
+                  disabled={isFetchingTrips}
+                  sx={{
+                    minWidth: "auto",
+                    px: 2,
+                  }}
+                >
+                  {isFetchingTrips ? "Refreshing..." : "Refresh Locations"}
+                </Button>
+              </Box>
             </Box>
             <Box sx={{ position: "relative" }}>
               <GoogleMap
@@ -968,7 +1084,9 @@ const TripDashboard: React.FC = () => {
                     variant={isMobile ? "subtitle2" : "h6"}
                     sx={{ mb: isMobile ? 0.5 : 1, fontWeight: "bold" }}
                   >
-                    Trip Summary
+                    {selectedTrip?.status === TripStatus.SCHEDULED
+                      ? "Trip Yet To Start"
+                      : "Trip Summary"}
                   </Typography>
 
                   <Box
@@ -1113,6 +1231,75 @@ const TripDashboard: React.FC = () => {
           </Paper>
         </Box>
       </Box>
+
+      {/* Force End Trip Confirmation Dialog */}
+      <Dialog
+        open={forceEndDialogOpen}
+        onClose={handleForceEndDialogClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{ bgcolor: "error.main", color: "error.contrastText" }}
+        >
+          ⚠️ Force End Trip - Warning
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2" fontWeight="bold" gutterBottom>
+              This action cannot be undone!
+            </Typography>
+            <Typography variant="body2">
+              All pending deliveries will be automatically marked as{" "}
+              <strong>UNDELIVERED</strong>. They can be boarded on the next trip
+              if needed.
+            </Typography>
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to force end Trip #{tripToForceEnd}?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleForceEndDialogClose}
+            disabled={forceEndTripMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleForceEndConfirm}
+            disabled={forceEndTripMutation.isPending}
+          >
+            {forceEndTripMutation.isPending
+              ? "Ending Trip..."
+              : "Yes, Force End Trip"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={6000}
+        onClose={handleSuccessSnackbarClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={handleSuccessSnackbarClose}
+          severity="success"
+          sx={{ width: "100%" }}
+        >
+          {successMessage}
+        </Alert>
+      </Snackbar>
+
+      {/* Loading Spinner for Force End Trip */}
+      <ModalInfiniteSpinner
+        condition={forceEndTripMutation.isPending}
+        title="Force ending trip... Please wait."
+      />
     </Box>
   );
 };
