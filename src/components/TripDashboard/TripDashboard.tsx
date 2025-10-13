@@ -730,21 +730,19 @@ const TripDashboard: React.FC = () => {
     };
   };
 
-  // Generate map markers - show all drivers when no trip is selected (only for Ongoing tab)
+  // Generate map markers - show filtered drivers when no trip is selected
   useEffect(() => {
     if (!allTripsData?.trips) return;
 
-    // Only show all drivers when no trip is selected AND on Ongoing tab (activeTab === 0)
+    // Only show all drivers when no trip is selected
     if (selectedTripId) return;
-    if (activeTab !== 0) {
-      // For Scheduled and Ended tabs, clear map when no trip is selected
-      setMapMarkers([]);
-      return;
-    }
 
     const markers: MapMarker[] = [];
 
-    allTripsData.trips.forEach((trip) => {
+    // Filter trips based on active tab
+    const filteredTrips = getFilteredTrips();
+
+    filteredTrips.forEach((trip) => {
       // Add driver marker if coordinates are available
       if (trip.driverLastKnownLatitude && trip.driverLastKnownLongitude) {
         markers.push({

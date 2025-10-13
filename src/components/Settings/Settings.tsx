@@ -773,12 +773,6 @@ const Settings: React.FC = () => {
                     No backups available. Create a backup first.
                   </Alert>
                 )}
-
-                <Alert severity="warning">
-                  <Typography variant="caption">
-                    Passkey is required for restore.
-                  </Typography>
-                </Alert>
               </CardContent>
             </Card>
           </Box>
