@@ -17,8 +17,6 @@ import {
 import { DocTrackingResponse } from "../../types/DocTracking";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 
-// Haversine distance-based ETA calculation
-
 const PublicTracking: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
@@ -28,181 +26,24 @@ const PublicTracking: React.FC = () => {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [eta, setEta] = useState<string | null>(null);
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
-  // Function to calculate driver location age in minutes
-  const calculateDriverLocationAge = (receivedAt: string): number => {
-    const now = new Date();
-    const locationTime = new Date(receivedAt);
-    const diffInMs = now.getTime() - locationTime.getTime();
-    return Math.floor(diffInMs / (1000 * 60)); // Convert to minutes
-  };
+  // Function to format ETA from server
+  const formatETA = (etaMinutes: number, status?: string): string => {
+    if (etaMinutes === -1) {
+      return status === "ON_TRIP" ? "Updating Soon" : "Unavailable";
+    }
 
-  // Function to get travel time using haversine distance calculation
-  const getTravelTime = async (
-    originLat: number,
-    originLng: number,
-    destLat: number,
-    destLng: number
-  ): Promise<number> => {
-    // Haversine distance calculation
-    const haversineDistance = (
-      lat1: number,
-      lon1: number,
-      lat2: number,
-      lon2: number
-    ): number => {
-      const R = 6371; // Earth's radius in kilometers
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLon = ((lon2 - lon1) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c; // Distance in kilometers
-    };
-
-    const distance = haversineDistance(originLat, originLng, destLat, destLng);
-
-    // Realistic estimation for Indian city traffic
-    // Adjust speed based on distance - shorter distances have slower average speeds due to traffic
-    let averageSpeed = 35; // km/h default
-
-    if (distance < 5) {
-      averageSpeed = 20; // Heavy traffic in city center
-    } else if (distance < 15) {
-      averageSpeed = 25; // Moderate traffic
-    } else if (distance < 30) {
-      averageSpeed = 35; // Mixed roads
+    if (etaMinutes < 1) {
+      return "Less than a minute";
+    } else if (etaMinutes < 60) {
+      return `${Math.round(etaMinutes)} minutes`;
     } else {
-      averageSpeed = 45; // Highway speeds
-    }
-
-    const estimatedTravelTime = (distance / averageSpeed) * 60; // Convert to minutes
-    console.log(
-      `Distance: ${distance.toFixed(
-        2
-      )} km, Speed: ${averageSpeed} km/h, Travel time: ${estimatedTravelTime.toFixed(
-        1
-      )} minutes`
-    );
-
-    return estimatedTravelTime;
-  };
-
-  // Function to calculate ETA
-  const calculateETA = async (
-    trackingData: DocTrackingResponse
-  ): Promise<string> => {
-    if (
-      !trackingData.customerLocation ||
-      !trackingData.driverLastKnownLocation ||
-      trackingData.otherCustomersServiceTime === undefined
-    ) {
-      return "ETA not available";
-    }
-
-    const driverLat = parseFloat(trackingData.driverLastKnownLocation.latitude);
-    const driverLng = parseFloat(
-      trackingData.driverLastKnownLocation.longitude
-    );
-    const currentCustomerLat = parseFloat(
-      trackingData.customerLocation.latitude
-    );
-    const currentCustomerLng = parseFloat(
-      trackingData.customerLocation.longitude
-    );
-
-    try {
-      // Get travel time using haversine distance calculation
-      const travelTime = await getTravelTime(
-        driverLat,
-        driverLng,
-        currentCustomerLat,
-        currentCustomerLng
-      );
-      console.log("travelTime", travelTime);
-
-      // Add service time for other customers
-      const totalMinutes =
-        travelTime + (trackingData.otherCustomersServiceTime || 0);
-
-      // Calculate driver location age and deduct from ETA
-      const driverLocationAge = calculateDriverLocationAge(
-        trackingData.driverLastKnownLocation.receivedAt
-      );
-      const adjustedMinutes = Math.max(0, totalMinutes - driverLocationAge);
-
-      // Format the result
-      if (adjustedMinutes < 1) {
-        return "Less than a minute";
-      } else if (adjustedMinutes < 60) {
-        return `${Math.round(adjustedMinutes)} minutes`;
-      } else {
-        const hours = Math.floor(adjustedMinutes / 60);
-        const minutes = Math.round(adjustedMinutes % 60);
-        return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-      }
-    } catch (error) {
-      console.error("Error calculating ETA:", error);
-
-      // Fallback: Use haversine distance calculation as rough estimate
-      try {
-        const haversineDistance = (
-          lat1: number,
-          lon1: number,
-          lat2: number,
-          lon2: number
-        ): number => {
-          const R = 6371; // Earth's radius in kilometers
-          const dLat = ((lat2 - lat1) * Math.PI) / 180;
-          const dLon = ((lon2 - lon1) * Math.PI) / 180;
-          const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos((lat1 * Math.PI) / 180) *
-              Math.cos((lat2 * Math.PI) / 180) *
-              Math.sin(dLon / 2) *
-              Math.sin(dLon / 2);
-          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          return R * c; // Distance in kilometers
-        };
-
-        const distance = haversineDistance(
-          driverLat,
-          driverLng,
-          currentCustomerLat,
-          currentCustomerLng
-        );
-        const estimatedTravelTime = distance * 2.4; // More realistic estimate: 25 km/h average speed in city traffic
-
-        const totalMinutes =
-          estimatedTravelTime + (trackingData.otherCustomersServiceTime || 0);
-        const driverLocationAge = calculateDriverLocationAge(
-          trackingData.driverLastKnownLocation.receivedAt
-        );
-        const adjustedMinutes = Math.max(0, totalMinutes - driverLocationAge);
-
-        if (adjustedMinutes < 1) {
-          return "Less than a minute (estimated)";
-        } else if (adjustedMinutes < 60) {
-          return `${Math.round(adjustedMinutes)} minutes (estimated)`;
-        } else {
-          const hours = Math.floor(adjustedMinutes / 60);
-          const minutes = Math.round(adjustedMinutes % 60);
-          return minutes > 0
-            ? `${hours}h ${minutes}m (estimated)`
-            : `${hours}h (estimated)`;
-        }
-      } catch (fallbackError) {
-        console.error("Fallback calculation also failed:", fallbackError);
-        return "ETA not available";
-      }
+      const hours = Math.floor(etaMinutes / 60);
+      const minutes = Math.round(etaMinutes % 60);
+      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
     }
   };
 
@@ -226,19 +67,6 @@ const PublicTracking: React.FC = () => {
         }
 
         setTrackingData(data);
-
-        // Calculate ETA if both locations are available
-        if (
-          data.customerLocation &&
-          data.driverLastKnownLocation &&
-          data.otherCustomersServiceTime !== undefined
-        ) {
-          const etaResult = await calculateETA(data);
-          setEta(etaResult);
-        } else {
-          setEta(null);
-        }
-
         setIsLoading(false);
       } catch (err) {
         setError("Failed to load tracking information");
@@ -495,23 +323,73 @@ const PublicTracking: React.FC = () => {
           <Box sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
               <strong>Driver location updated:</strong>{" "}
-              {new Date(
-                trackingData.driverLastKnownLocation.receivedAt
-              ).toLocaleString()}
+              {(() => {
+                const updateTime = new Date(
+                  trackingData.driverLastKnownLocation.receivedAt
+                );
+                const today = new Date();
+
+                // Check if the update date is today
+                const isToday =
+                  updateTime.getDate() === today.getDate() &&
+                  updateTime.getMonth() === today.getMonth() &&
+                  updateTime.getFullYear() === today.getFullYear();
+
+                if (isToday) {
+                  // Show only time for today (without seconds)
+                  return updateTime.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                } else {
+                  // Show full date and time for other days (without seconds)
+                  return updateTime.toLocaleString([], {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                }
+              })()}
             </Typography>
           </Box>
         )}
 
-        {eta && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Estimated Delivery Time:</strong>{" "}
-              <span style={{ color: "#1976d2", fontWeight: "bold" }}>
-                {eta}
-              </span>
+        {trackingData.eta !== undefined && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+              <strong>Estimated Delivery Time:</strong>
+            </Typography>
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: "bold",
+                color:
+                  trackingData.eta === -1 ? "warning.main" : "primary.main",
+              }}
+            >
+              {formatETA(trackingData.eta, trackingData.status)}
             </Typography>
           </Box>
         )}
+
+        {trackingData.numEnrouteCustomers !== undefined &&
+          trackingData.numEnrouteCustomers > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                <Typography variant="body2">
+                  <strong>Note:</strong> The delivery agent has{" "}
+                  <strong>{trackingData.numEnrouteCustomers}</strong>{" "}
+                  {trackingData.numEnrouteCustomers === 1
+                    ? "delivery"
+                    : "deliveries"}{" "}
+                  to make before reaching you. The actual delivery time may be
+                  longer than estimated.
+                </Typography>
+              </Alert>
+            </Box>
+          )}
       </Paper>
 
       {/* Map or Status Message */}
