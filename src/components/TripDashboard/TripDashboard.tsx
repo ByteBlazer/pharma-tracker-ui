@@ -420,16 +420,135 @@ const TripCard: React.FC<TripCardProps> = ({
             <Divider sx={{ my: 1 }} />
 
             <Typography variant="caption" color="text.secondary">
-              Created: {new Date(trip.createdAt).toLocaleString()}
+              Created:{" "}
+              {(() => {
+                const createdDate = new Date(trip.createdAt);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                const isToday =
+                  createdDate.getDate() === today.getDate() &&
+                  createdDate.getMonth() === today.getMonth() &&
+                  createdDate.getFullYear() === today.getFullYear();
+
+                const isYesterday =
+                  createdDate.getDate() === yesterday.getDate() &&
+                  createdDate.getMonth() === yesterday.getMonth() &&
+                  createdDate.getFullYear() === yesterday.getFullYear();
+
+                if (isToday) {
+                  return `Today ${createdDate.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`;
+                } else if (isYesterday) {
+                  return `Yesterday ${createdDate.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`;
+                } else {
+                  return `${createdDate.toLocaleDateString([], {
+                    month: "short",
+                    day: "numeric",
+                  })} ${createdDate.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`;
+                }
+              })()}
             </Typography>
-            <br />
-            <Typography variant="caption" color="text.secondary">
-              Started: {new Date(trip.startedAt).toLocaleString()}
-            </Typography>
-            <br />
-            <Typography variant="caption" color="text.secondary">
-              Last Updated: {new Date(trip.lastUpdatedAt).toLocaleString()}
-            </Typography>
+            {/* Only show Started timestamp for non-scheduled trips */}
+            {trip.status !== TripStatus.SCHEDULED && (
+              <>
+                <br />
+                <Typography variant="caption" color="text.secondary">
+                  Started:{" "}
+                  {(() => {
+                    const startedDate = new Date(trip.startedAt);
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    const isToday =
+                      startedDate.getDate() === today.getDate() &&
+                      startedDate.getMonth() === today.getMonth() &&
+                      startedDate.getFullYear() === today.getFullYear();
+
+                    const isYesterday =
+                      startedDate.getDate() === yesterday.getDate() &&
+                      startedDate.getMonth() === yesterday.getMonth() &&
+                      startedDate.getFullYear() === yesterday.getFullYear();
+
+                    if (isToday) {
+                      return `Today ${startedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else if (isYesterday) {
+                      return `Yesterday ${startedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else {
+                      return `${startedDate.toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      })} ${startedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    }
+                  })()}
+                </Typography>
+              </>
+            )}
+
+            {/* Show Ended timestamp for ended trips */}
+            {trip.status === TripStatus.ENDED && (
+              <>
+                <br />
+                <Typography variant="caption" color="text.secondary">
+                  Ended:{" "}
+                  {(() => {
+                    const endedDate = new Date(trip.lastUpdatedAt);
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    const isToday =
+                      endedDate.getDate() === today.getDate() &&
+                      endedDate.getMonth() === today.getMonth() &&
+                      endedDate.getFullYear() === today.getFullYear();
+
+                    const isYesterday =
+                      endedDate.getDate() === yesterday.getDate() &&
+                      endedDate.getMonth() === yesterday.getMonth() &&
+                      endedDate.getFullYear() === yesterday.getFullYear();
+
+                    if (isToday) {
+                      return `Today ${endedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else if (isYesterday) {
+                      return `Yesterday ${endedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else {
+                      return `${endedDate.toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      })} ${endedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    }
+                  })()}
+                </Typography>
+              </>
+            )}
 
             {/* Force End Trip Button - Only for ongoing trips */}
             {trip.status === TripStatus.STARTED && onForceEndClick && (
@@ -709,8 +828,15 @@ const TripDashboard: React.FC = () => {
       selectedTrip.status === TripStatus.ENDED
     ) {
       const tripStartTime = new Date(selectedTrip.startedAt);
-      const now = new Date();
-      const durationMs = now.getTime() - tripStartTime.getTime();
+
+      // For ended trips, use lastUpdatedAt as the end time
+      // For started trips, use current time (real-time duration)
+      const endTime =
+        selectedTrip.status === TripStatus.ENDED
+          ? new Date(selectedTrip.lastUpdatedAt)
+          : new Date();
+
+      const durationMs = endTime.getTime() - tripStartTime.getTime();
       const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
       const durationMinutes = Math.floor(
         (durationMs % (1000 * 60 * 60)) / (1000 * 60)
