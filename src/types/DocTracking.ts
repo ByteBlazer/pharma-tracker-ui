@@ -13,5 +13,7 @@ export interface DocTrackingResponse {
     longitude: string;
     receivedAt: string;
   };
-  otherCustomersServiceTime?: number; // in minutes
+  enrouteCustomersServiceTime?: number; // in minutes
+  numEnrouteCustomers?: number; // Number of customers nearer than current customer
+  eta: number; // in minutes, -1 means unavailable
 }
