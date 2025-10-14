@@ -352,23 +352,25 @@ const PublicTracking: React.FC = () => {
           </Box>
         )}
 
-        {trackingData.eta !== undefined && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-              <strong>Estimated Delivery Time:</strong>
-            </Typography>
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: "bold",
-                color:
-                  trackingData.eta === -1 ? "warning.main" : "primary.main",
-              }}
-            >
-              {formatETA(trackingData.eta, trackingData.status)}
-            </Typography>
-          </Box>
-        )}
+        {trackingData.eta !== undefined &&
+          trackingData.status !== "DELIVERED" &&
+          trackingData.status !== "UNDELIVERED" && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+                <strong>Estimated Delivery Time:</strong>
+              </Typography>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: "bold",
+                  color:
+                    trackingData.eta === -1 ? "warning.main" : "primary.main",
+                }}
+              >
+                {formatETA(trackingData.eta, trackingData.status)}
+              </Typography>
+            </Box>
+          )}
 
         {trackingData.numEnrouteCustomers !== undefined &&
           trackingData.numEnrouteCustomers > 0 && (
