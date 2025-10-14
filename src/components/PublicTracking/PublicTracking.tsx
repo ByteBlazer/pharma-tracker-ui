@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   Box,
   Typography,
@@ -21,12 +22,6 @@ const PublicTracking: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
 
-  const [trackingData, setTrackingData] = useState<DocTrackingResponse | null>(
-    null
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
@@ -47,35 +42,34 @@ const PublicTracking: React.FC = () => {
     }
   };
 
-  // Fetch tracking data
-  useEffect(() => {
-    const fetchTrackingData = async () => {
+  // Fetch tracking data with auto-refresh
+  const {
+    data: trackingData,
+    isLoading,
+    isError,
+    error,
+  } = useQuery<DocTrackingResponse>({
+    queryKey: ["doc-tracking", token],
+    queryFn: async () => {
       if (!token) {
-        setError("Invalid tracking link: No token provided");
-        setIsLoading(false);
-        return;
+        throw new Error("Invalid tracking link: No token provided");
       }
 
-      try {
-        const response = await fetch(API_ENDPOINTS.DOC_TRACKING(token));
-        const data: DocTrackingResponse = await response.json();
+      const response = await fetch(API_ENDPOINTS.DOC_TRACKING(token));
+      const data: DocTrackingResponse = await response.json();
 
-        if (!data.success) {
-          setError(data.message || "Failed to retrieve tracking information");
-          setIsLoading(false);
-          return;
-        }
-
-        setTrackingData(data);
-        setIsLoading(false);
-      } catch (err) {
-        setError("Failed to load tracking information");
-        setIsLoading(false);
+      if (!data.success) {
+        throw new Error(
+          data.message || "Failed to retrieve tracking information"
+        );
       }
-    };
 
-    fetchTrackingData();
-  }, [token]);
+      return data;
+    },
+    enabled: !!token,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
+  });
 
   // Initialize and update Google Map
   useEffect(() => {
@@ -248,7 +242,7 @@ const PublicTracking: React.FC = () => {
     );
   }
 
-  if (error || !trackingData) {
+  if (isError || !trackingData) {
     return (
       <Box
         sx={{
@@ -260,7 +254,9 @@ const PublicTracking: React.FC = () => {
         }}
       >
         <Alert severity="error" sx={{ maxWidth: 600 }}>
-          {error || "Failed to load tracking information"}
+          {error instanceof Error
+            ? error.message
+            : "Failed to load tracking information"}
         </Alert>
       </Box>
     );
@@ -356,23 +352,25 @@ const PublicTracking: React.FC = () => {
           </Box>
         )}
 
-        {trackingData.eta !== undefined && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-              <strong>Estimated Delivery Time:</strong>
-            </Typography>
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: "bold",
-                color:
-                  trackingData.eta === -1 ? "warning.main" : "primary.main",
-              }}
-            >
-              {formatETA(trackingData.eta, trackingData.status)}
-            </Typography>
-          </Box>
-        )}
+        {trackingData.eta !== undefined &&
+          trackingData.status !== "DELIVERED" &&
+          trackingData.status !== "UNDELIVERED" && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
+                <strong>Estimated Delivery Time:</strong>
+              </Typography>
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: "bold",
+                  color:
+                    trackingData.eta === -1 ? "warning.main" : "primary.main",
+                }}
+              >
+                {formatETA(trackingData.eta, trackingData.status)}
+              </Typography>
+            </Box>
+          )}
 
         {trackingData.numEnrouteCustomers !== undefined &&
           trackingData.numEnrouteCustomers > 0 && (

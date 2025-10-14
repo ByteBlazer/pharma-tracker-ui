@@ -502,6 +502,8 @@ const TripDashboard: React.FC = () => {
   } = useQuery<AllTripsResponse>({
     queryKey: ["all-trips"],
     queryFn: () => get(API_ENDPOINTS.ALL_TRIPS),
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
   });
 
   // Fetch selected trip details
@@ -509,6 +511,8 @@ const TripDashboard: React.FC = () => {
     queryKey: ["trip-detail", selectedTripId],
     queryFn: () => get(API_ENDPOINTS.TRIP_DETAIL(selectedTripId!)),
     enabled: !!selectedTripId,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
   });
 
   // Force end trip mutation
