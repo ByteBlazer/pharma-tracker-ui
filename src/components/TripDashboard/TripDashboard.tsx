@@ -278,7 +278,7 @@ const TripCard: React.FC<TripCardProps> = ({
           sx={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-start",
+            alignItems: "center",
             mb: 1,
           }}
         >
@@ -666,6 +666,7 @@ const TripDashboard: React.FC = () => {
   const [forceEndDialogOpen, setForceEndDialogOpen] = useState(false);
   const [tripToForceEnd, setTripToForceEnd] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>("");
+  const [refreshCountdown, setRefreshCountdown] = useState(10);
 
   // Fetch all trips
   const {
@@ -930,6 +931,20 @@ const TripDashboard: React.FC = () => {
     };
   }, []);
 
+  // Countdown timer for refresh button
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshCountdown((prev) => {
+        if (prev <= 1) {
+          return 10; // Reset to 10 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Generate map markers - show filtered drivers when no trip is selected
   useEffect(() => {
     if (!allTripsData?.trips) return;
@@ -1041,6 +1056,7 @@ const TripDashboard: React.FC = () => {
   const handleRefreshLocations = async () => {
     // Re-fetch all trips data to get latest driver locations
     await refetchTrips();
+    setRefreshCountdown(10); // Reset countdown when manually refreshed
   };
 
   return (
@@ -1203,15 +1219,8 @@ const TripDashboard: React.FC = () => {
         {/* Google Map */}
         <Box sx={{ flex: { xs: "1", md: "0 0 67%" } }}>
           <Paper sx={{ p: 2 }}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 2,
-                gap: 1,
-              }}
-            >
+            {/* Map Heading */}
+            <Box sx={{ mb: 2 }}>
               <Typography variant="h6">
                 {selectedTripId && selectedTrip
                   ? `Trip #${selectedTripId} - ${selectedTrip.route}`
@@ -1223,7 +1232,20 @@ const TripDashboard: React.FC = () => {
                   ? "Select a Trip to View Details"
                   : "Select a Trip to View Details"}
               </Typography>
-              <Box sx={{ display: "flex", gap: 1 }}>
+            </Box>
+
+            {/* Action Buttons Row */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+                gap: 2,
+              }}
+            >
+              {/* Left side - Show All Trips button */}
+              <Box>
                 {selectedTripId && (
                   <Button
                     variant="contained"
@@ -1235,11 +1257,15 @@ const TripDashboard: React.FC = () => {
                       px: 2,
                     }}
                   >
-                    {activeTab === 0 && "Show All Ongoing Trips"}
-                    {activeTab === 1 && "Show All Scheduled Trips"}
-                    {activeTab === 2 && "Show All Ended Trips"}
+                    {activeTab === 0 && "Show All Trips"}
+                    {activeTab === 1 && "Show All Trips"}
+                    {activeTab === 2 && "Show All Trips"}
                   </Button>
                 )}
+              </Box>
+
+              {/* Right side - Refresh button */}
+              <Box>
                 <Button
                   variant="outlined"
                   size="small"
@@ -1251,7 +1277,9 @@ const TripDashboard: React.FC = () => {
                     px: 2,
                   }}
                 >
-                  {isFetchingTrips ? "Refreshing..." : "Refresh Locations"}
+                  {isFetchingTrips
+                    ? "Refreshing..."
+                    : `Refresh Data (${refreshCountdown})`}
                 </Button>
               </Box>
             </Box>

@@ -486,9 +486,10 @@ const PublicTracking: React.FC = () => {
             }}
           >
             <Alert severity="info" sx={{ maxWidth: 600 }}>
-              {trackingData.status === "DELIVERED" ||
-              trackingData.status === "UNDELIVERED"
+              {trackingData.status === "DELIVERED"
                 ? "Delivery has been completed. Location tracking is no longer available."
+                : trackingData.status === "UNDELIVERED"
+                ? "Delivery could not be completed. Location tracking is no longer available."
                 : "Location tracking is not available for this delivery at the moment."}
             </Alert>
           </Box>
