@@ -278,7 +278,7 @@ const TripCard: React.FC<TripCardProps> = ({
           sx={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-start",
+            alignItems: "center",
             mb: 1,
           }}
         >
@@ -666,6 +666,7 @@ const TripDashboard: React.FC = () => {
   const [forceEndDialogOpen, setForceEndDialogOpen] = useState(false);
   const [tripToForceEnd, setTripToForceEnd] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>("");
+  const [refreshCountdown, setRefreshCountdown] = useState(10);
 
   // Fetch all trips
   const {
@@ -930,6 +931,20 @@ const TripDashboard: React.FC = () => {
     };
   }, []);
 
+  // Countdown timer for refresh button
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshCountdown((prev) => {
+        if (prev <= 1) {
+          return 10; // Reset to 10 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Generate map markers - show filtered drivers when no trip is selected
   useEffect(() => {
     if (!allTripsData?.trips) return;
@@ -1041,6 +1056,7 @@ const TripDashboard: React.FC = () => {
   const handleRefreshLocations = async () => {
     // Re-fetch all trips data to get latest driver locations
     await refetchTrips();
+    setRefreshCountdown(10); // Reset countdown when manually refreshed
   };
 
   return (
@@ -1261,7 +1277,9 @@ const TripDashboard: React.FC = () => {
                     px: 2,
                   }}
                 >
-                  {isFetchingTrips ? "Refreshing..." : "Refresh Locations"}
+                  {isFetchingTrips
+                    ? "Refreshing..."
+                    : `Refresh Data (${refreshCountdown})`}
                 </Button>
               </Box>
             </Box>
