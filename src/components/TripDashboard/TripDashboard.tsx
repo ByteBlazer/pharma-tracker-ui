@@ -136,7 +136,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         map: mapInstanceRef.current,
         title: markerData.title,
         icon: markerIcon,
-        zIndex: markerData.type === "driver" ? 1000 : 100, // Driver markers always on top
+        zIndex: markerData.type === "customer" ? 1000 : 100, // Customer markers always on top
         optimized: markerData.type === "driver" ? false : true, // Disable optimization for driver to allow animation
       });
 
