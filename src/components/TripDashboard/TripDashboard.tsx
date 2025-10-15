@@ -232,7 +232,7 @@ const TripCard: React.FC<TripCardProps> = ({
   const getStatusColor = (status: TripStatus) => {
     switch (status) {
       case TripStatus.STARTED:
-        return "success";
+        return "primary";
       case TripStatus.SCHEDULED:
         return "warning";
       case TripStatus.ENDED:
@@ -1315,7 +1315,9 @@ const TripDashboard: React.FC = () => {
                 >
                   {isFetchingTrips
                     ? "Refreshing..."
-                    : `Refresh Data (${refreshCountdown})`}
+                    : `Refresh Data (${refreshCountdown
+                        .toString()
+                        .padStart(2, "0")})`}
                 </Button>
               </Box>
             </Box>
@@ -1351,6 +1353,8 @@ const TripDashboard: React.FC = () => {
                   >
                     {selectedTrip?.status === TripStatus.SCHEDULED
                       ? "Trip Yet To Start"
+                      : selectedTrip?.status === TripStatus.STARTED
+                      ? "Trip In Progress"
                       : "Trip Summary"}
                   </Typography>
 
