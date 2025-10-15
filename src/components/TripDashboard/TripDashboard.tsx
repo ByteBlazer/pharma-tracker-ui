@@ -274,27 +274,34 @@ const TripCard: React.FC<TripCardProps> = ({
       onClick={onClick}
     >
       <CardContent sx={{ p: 2 }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 1,
-          }}
-        >
-          <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
+        <Box sx={{ mb: 1 }}>
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{
+              fontWeight: "bold",
+              fontSize: { xs: "1rem", sm: "1.1rem", md: "1.25rem" },
+            }}
+          >
             {trip.route}
           </Typography>
-          <Chip
-            icon={getStatusIcon(trip.status)}
-            label={trip.status}
-            color={getStatusColor(trip.status)}
-            size="small"
-          />
         </Box>
 
         {!isExpanded && (
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mt: 1,
+            }}
+          >
+            <Chip
+              icon={getStatusIcon(trip.status)}
+              label={trip.status}
+              color={getStatusColor(trip.status)}
+              size="small"
+            />
             <Typography
               variant="body2"
               color="primary"
@@ -493,7 +500,20 @@ const TripCard: React.FC<TripCardProps> = ({
               </>
             )}
 
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mt: 1,
+              }}
+            >
+              <Chip
+                icon={getStatusIcon(trip.status)}
+                label={trip.status}
+                color={getStatusColor(trip.status)}
+                size="small"
+              />
               <Typography
                 variant="body2"
                 color="primary"
@@ -1221,13 +1241,18 @@ const TripDashboard: React.FC = () => {
           <Paper sx={{ p: 2 }}>
             {/* Map Heading */}
             <Box sx={{ mb: 2 }}>
-              <Typography variant="h6">
+              <Typography
+                variant="h6"
+                sx={{
+                  fontSize: { xs: "1rem", sm: "1.1rem", md: "1.25rem" },
+                }}
+              >
                 {selectedTripId && selectedTrip
                   ? `Trip #${selectedTripId} - ${selectedTrip.route}`
                   : selectedTripId
                   ? `Trip #${selectedTripId}`
                   : activeTab === 0
-                  ? "Showing All Ongoing Trips - Driver Locations"
+                  ? "All Ongoing Trips - Driver Locations"
                   : activeTab === 1
                   ? "Select a Trip to View Details"
                   : "Select a Trip to View Details"}
@@ -1305,6 +1330,7 @@ const TripDashboard: React.FC = () => {
                     backgroundColor: "rgba(255, 255, 255, 0.95)",
                     backdropFilter: "blur(4px)",
                     fontSize: isMobile ? "0.75rem" : "0.875rem",
+                    display: { xs: "none", md: "block" },
                   }}
                 >
                   <Typography
