@@ -82,7 +82,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
       center: { lat: 9.9312, lng: 76.2673 }, // Kochi, Kerala as default center
       mapTypeId: window.google.maps.MapTypeId.ROADMAP,
       minZoom: 4,
-      maxZoom: 18, // Restrict maximum zoom level to 15
+      maxZoom: 20,
     });
 
     mapInstanceRef.current = map;
