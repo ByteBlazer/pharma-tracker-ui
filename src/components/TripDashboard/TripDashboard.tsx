@@ -141,18 +141,18 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
       });
 
       // Add click listener
-      if (markerData.type === "customer" && markerData.customerInfo) {
-        // Customer markers always get click listeners
-        marker.addListener("click", () => {
+      marker.addListener("click", () => {
+        if (markerData.type === "customer" && markerData.customerInfo) {
+          // Show info window for customer markers
           onCustomerMarkerClick(marker, markerData);
-        });
-      } else if (markerData.tripId && !selectedTripId) {
-        // Driver markers only get click listeners when no trip is selected
-        marker.addListener("click", () => {
-          onMarkerClick(markerData.tripId!);
-        });
-      }
-      // If trip is selected, driver markers get NO click listener at all
+        } else if (markerData.tripId) {
+          // Handle driver marker clicks only if no trip is selected
+          if (!selectedTripId) {
+            onMarkerClick(markerData.tripId);
+          }
+          // If a trip is already selected, do nothing (marker is non-clickable)
+        }
+      });
 
       // Add pulsing class to driver markers
       if (markerData.type === "driver") {
