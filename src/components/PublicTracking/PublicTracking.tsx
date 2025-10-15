@@ -342,7 +342,39 @@ const PublicTracking: React.FC = () => {
           <Box sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
               <strong>Delivered at:</strong>{" "}
-              {new Date(trackingData.deliveryTimestamp).toLocaleString()}
+              {(() => {
+                const deliveredDate = new Date(trackingData.deliveryTimestamp);
+                const today = new Date();
+
+                const isToday =
+                  deliveredDate.getDate() === today.getDate() &&
+                  deliveredDate.getMonth() === today.getMonth() &&
+                  deliveredDate.getFullYear() === today.getFullYear();
+
+                if (isToday) {
+                  return `Today ${deliveredDate.toLocaleTimeString("en-IN", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                    timeZone: "Asia/Kolkata",
+                  })}`;
+                } else {
+                  return (
+                    deliveredDate.toLocaleDateString("en-IN", {
+                      month: "short",
+                      day: "numeric",
+                      timeZone: "Asia/Kolkata",
+                    }) +
+                    " " +
+                    deliveredDate.toLocaleTimeString("en-IN", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                      timeZone: "Asia/Kolkata",
+                    })
+                  );
+                }
+              })()}
             </Typography>
           </Box>
         )}

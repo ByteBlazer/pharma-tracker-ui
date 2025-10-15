@@ -232,7 +232,7 @@ const TripCard: React.FC<TripCardProps> = ({
   const getStatusColor = (status: TripStatus) => {
     switch (status) {
       case TripStatus.STARTED:
-        return "success";
+        return "primary";
       case TripStatus.SCHEDULED:
         return "warning";
       case TripStatus.ENDED:
@@ -620,6 +620,49 @@ const TripDashboard: React.FC = () => {
                 </p>
               </div>
             `;
+            }
+
+            // Add delivery timestamp if available
+            if (deliveryStatus.deliveredAt) {
+              const deliveredDate = new Date(deliveryStatus.deliveredAt);
+              const today = new Date();
+
+              const isToday =
+                deliveredDate.getDate() === today.getDate() &&
+                deliveredDate.getMonth() === today.getMonth() &&
+                deliveredDate.getFullYear() === today.getFullYear();
+
+              const timeStr = deliveredDate.toLocaleTimeString("en-IN", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+                timeZone: "Asia/Kolkata",
+              });
+
+              const statusText =
+                markerData.status === DocStatus.UNDELIVERED
+                  ? "DELIVERY FAILED"
+                  : "DELIVERED";
+
+              let timestampStr;
+              if (isToday) {
+                timestampStr = `${statusText} at ${timeStr} today`;
+              } else {
+                const dateStr = deliveredDate.toLocaleDateString("en-IN", {
+                  month: "short",
+                  day: "numeric",
+                  timeZone: "Asia/Kolkata",
+                });
+                timestampStr = `${statusText} at ${timeStr} on ${dateStr}`;
+              }
+
+              // Update the status display with timestamp
+              content = content.replace(
+                /<span style="color: [^"]+; font-weight: bold;">[^<]*<\/span>/,
+                `<span style="color: ${getStatusColor(
+                  markerData.status
+                )}; font-weight: bold;">${timestampStr}</span>`
+              );
             }
           }
         } catch (error) {
@@ -1315,7 +1358,9 @@ const TripDashboard: React.FC = () => {
                 >
                   {isFetchingTrips
                     ? "Refreshing..."
-                    : `Refresh Data (${refreshCountdown})`}
+                    : `Refresh Data (${refreshCountdown
+                        .toString()
+                        .padStart(2, "0")})`}
                 </Button>
               </Box>
             </Box>
@@ -1351,6 +1396,8 @@ const TripDashboard: React.FC = () => {
                   >
                     {selectedTrip?.status === TripStatus.SCHEDULED
                       ? "Trip Yet To Start"
+                      : selectedTrip?.status === TripStatus.STARTED
+                      ? "Trip In Progress"
                       : "Trip Summary"}
                   </Typography>
 
