@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
@@ -57,6 +57,7 @@ interface GoogleMapProps {
   markers: MapMarker[];
   onMarkerClick: (tripId: number) => void;
   onCustomerMarkerClick: (marker: any, markerData: MapMarker) => void;
+  selectedTripId: number | null;
   height: string;
 }
 
@@ -64,6 +65,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
   markers,
   onMarkerClick,
   onCustomerMarkerClick,
+  selectedTripId,
   height,
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -144,8 +146,11 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
           // Show info window for customer markers
           onCustomerMarkerClick(marker, markerData);
         } else if (markerData.tripId) {
-          // Handle driver marker clicks (existing behavior)
-          onMarkerClick(markerData.tripId);
+          // Handle driver marker clicks only if no trip is selected
+          if (!selectedTripId) {
+            onMarkerClick(markerData.tripId);
+          }
+          // If a trip is already selected, do nothing (marker is non-clickable)
         }
       });
 
@@ -543,22 +548,23 @@ const TripDashboard: React.FC = () => {
   const infoWindowRef = useRef<any>(null);
 
   // Function to show customer info window
-  const showCustomerInfoWindow = async (marker: any, markerData: MapMarker) => {
-    if (!infoWindowRef.current || !markerData.customerInfo) return;
+  const showCustomerInfoWindow = useCallback(
+    async (marker: any, markerData: MapMarker) => {
+      if (!infoWindowRef.current || !markerData.customerInfo) return;
 
-    const docId = markerData.id.replace("customer-", "");
-    const trackingUrl = generateTrackingUrl(docId);
+      const docId = markerData.id.replace("customer-", "");
+      const trackingUrl = generateTrackingUrl(docId);
 
-    // Show basic info first
-    let content = `
+      // Show basic info first
+      let content = `
       <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 300px;">
         <h4 style="margin: 0 0 8px 0; color: #333;">${
           markerData.customerInfo.firmName
         }</h4>
         <p style="margin: 4px 0; color: #666; font-size: 14px;">
           <strong>Address:</strong> ${markerData.customerInfo.address}, ${
-      markerData.customerInfo.city
-    }
+        markerData.customerInfo.city
+      }
         </p>
         <p style="margin: 4px 0; color: #666; font-size: 14px;">
           <strong>Phone:</strong> ${markerData.customerInfo.phone}
@@ -577,20 +583,20 @@ const TripDashboard: React.FC = () => {
         </p>
     `;
 
-    // If status is DELIVERED or UNDELIVERED, fetch delivery status
-    if (
-      markerData.status === DocStatus.DELIVERED ||
-      markerData.status === DocStatus.UNDELIVERED
-    ) {
-      try {
-        const deliveryStatus = await get<DeliveryStatusResponse>(
-          API_ENDPOINTS.DOC_DELIVERY_STATUS(docId)
-        );
+      // If status is DELIVERED or UNDELIVERED, fetch delivery status
+      if (
+        markerData.status === DocStatus.DELIVERED ||
+        markerData.status === DocStatus.UNDELIVERED
+      ) {
+        try {
+          const deliveryStatus = await get<DeliveryStatusResponse>(
+            API_ENDPOINTS.DOC_DELIVERY_STATUS(docId)
+          );
 
-        if (deliveryStatus.success) {
-          // Add signature if available
-          if (deliveryStatus.signature) {
-            content += `
+          if (deliveryStatus.success) {
+            // Add signature if available
+            if (deliveryStatus.signature) {
+              content += `
               <div style="margin: 12px 0;">
                 <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
                   Signature:
@@ -600,11 +606,11 @@ const TripDashboard: React.FC = () => {
                      alt="Delivery Signature" />
               </div>
             `;
-          }
+            }
 
-          // Add comments if available
-          if (deliveryStatus.comment) {
-            content += `
+            // Add comments if available
+            if (deliveryStatus.comment) {
+              content += `
               <div style="margin: 12px 0;">
                 <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
                   Comments:
@@ -614,15 +620,15 @@ const TripDashboard: React.FC = () => {
                 </p>
               </div>
             `;
+            }
           }
+        } catch (error) {
+          console.error("Failed to fetch delivery status:", error);
+          // Continue without delivery status info
         }
-      } catch (error) {
-        console.error("Failed to fetch delivery status:", error);
-        // Continue without delivery status info
       }
-    }
 
-    content += `
+      content += `
         <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
           <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
             Tracking URL:
@@ -646,19 +652,21 @@ const TripDashboard: React.FC = () => {
       </div>
     `;
 
-    // Add global copy function
-    (window as any).copyToClipboard = (inputId: string) => {
-      const input = document.getElementById(inputId) as HTMLInputElement;
-      if (input) {
-        input.select();
-        document.execCommand("copy");
-        // You could add a toast notification here
-      }
-    };
+      // Add global copy function
+      (window as any).copyToClipboard = (inputId: string) => {
+        const input = document.getElementById(inputId) as HTMLInputElement;
+        if (input) {
+          input.select();
+          document.execCommand("copy");
+          // You could add a toast notification here
+        }
+      };
 
-    infoWindowRef.current.setContent(content);
-    infoWindowRef.current.open(marker.getMap(), marker);
-  };
+      infoWindowRef.current.setContent(content);
+      infoWindowRef.current.open(marker.getMap(), marker);
+    },
+    [get]
+  );
 
   // Helper function to get status color
   const getStatusColor = (status?: string): string => {
@@ -686,7 +694,7 @@ const TripDashboard: React.FC = () => {
   const [forceEndDialogOpen, setForceEndDialogOpen] = useState(false);
   const [tripToForceEnd, setTripToForceEnd] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>("");
-  const [refreshCountdown, setRefreshCountdown] = useState(10);
+  const [refreshCountdown, setRefreshCountdown] = useState(20);
 
   // Fetch all trips
   const {
@@ -699,7 +707,7 @@ const TripDashboard: React.FC = () => {
   } = useQuery<AllTripsResponse>({
     queryKey: ["all-trips"],
     queryFn: () => get(API_ENDPOINTS.ALL_TRIPS),
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchInterval: 20000, // Auto-refresh every 20 seconds
     refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
   });
 
@@ -708,7 +716,7 @@ const TripDashboard: React.FC = () => {
     queryKey: ["trip-detail", selectedTripId],
     queryFn: () => get(API_ENDPOINTS.TRIP_DETAIL(selectedTripId!)),
     enabled: !!selectedTripId,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchInterval: 20000, // Auto-refresh every 20 seconds
     refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
   });
 
@@ -752,15 +760,18 @@ const TripDashboard: React.FC = () => {
   };
 
   // Handle marker click
-  const handleMarkerClick = (tripId: number) => {
-    if (selectedTripId === tripId) {
-      // If clicking on the already selected trip marker, deselect it
-      setSelectedTripId(null);
-    } else {
-      // Select the new trip
-      setSelectedTripId(tripId);
-    }
-  };
+  const handleMarkerClick = useCallback(
+    (tripId: number) => {
+      if (selectedTripId === tripId) {
+        // If clicking on the already selected trip marker, deselect it
+        setSelectedTripId(null);
+      } else {
+        // Select the new trip
+        setSelectedTripId(tripId);
+      }
+    },
+    [selectedTripId]
+  );
 
   // Handle force end trip click
   const handleForceEndClick = (tripId: number) => {
@@ -956,7 +967,7 @@ const TripDashboard: React.FC = () => {
     const interval = setInterval(() => {
       setRefreshCountdown((prev) => {
         if (prev <= 1) {
-          return 10; // Reset to 10 seconds
+          return 20; // Reset to 20 seconds
         }
         return prev - 1;
       });
@@ -987,7 +998,7 @@ const TripDashboard: React.FC = () => {
             lng: parseFloat(trip.driverLastKnownLongitude),
           },
           type: "driver",
-          title: `${trip.driverName} - ${trip.vehicleNumber}`,
+          title: `${trip.driverName} - ${trip.vehicleNumber} - ${trip.route}`,
           tripId: trip.tripId,
         });
       }
@@ -1041,7 +1052,7 @@ const TripDashboard: React.FC = () => {
           lng: parseFloat(selectedTrip.driverLastKnownLongitude),
         },
         type: "driver",
-        title: `${selectedTrip.driverName} - ${selectedTrip.vehicleNumber}`,
+        title: `${selectedTrip.driverName} - ${selectedTrip.vehicleNumber} - ${selectedTrip.route}`,
         tripId: selectedTrip.tripId,
       });
     }
@@ -1076,7 +1087,7 @@ const TripDashboard: React.FC = () => {
   const handleRefreshLocations = async () => {
     // Re-fetch all trips data to get latest driver locations
     await refetchTrips();
-    setRefreshCountdown(10); // Reset countdown when manually refreshed
+    setRefreshCountdown(20); // Reset countdown when manually refreshed
   };
 
   return (
@@ -1313,6 +1324,7 @@ const TripDashboard: React.FC = () => {
                 markers={mapMarkers}
                 onMarkerClick={handleMarkerClick}
                 onCustomerMarkerClick={showCustomerInfoWindow}
+                selectedTripId={selectedTripId}
                 height={isMobile ? "400px" : "600px"}
               />
 
