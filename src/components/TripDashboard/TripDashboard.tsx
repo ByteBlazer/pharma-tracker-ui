@@ -192,8 +192,8 @@ const getMarkerIcon = (marker: MapMarker): string | any => {
   if (marker.type === "driver") {
     return {
       url: "/truck-front.png",
-      scaledSize: new window.google.maps.Size(75, 75),
-      anchor: new window.google.maps.Point(37.5, 37.5),
+      scaledSize: new window.google.maps.Size(60, 60),
+      anchor: new window.google.maps.Point(30, 30),
     };
   }
 
