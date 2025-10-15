@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useApiService } from "../../hooks/useApiService";
 import {
   Box,
   Typography,
@@ -16,11 +17,13 @@ import {
   Schedule,
 } from "@mui/icons-material";
 import { DocTrackingResponse } from "../../types/DocTracking";
+import { DeliveryStatusResponse } from "../../types/DeliveryStatus";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 
 const PublicTracking: React.FC = () => {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
+  const { get } = useApiService();
 
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -69,6 +72,30 @@ const PublicTracking: React.FC = () => {
     enabled: !!token,
     refetchInterval: 10000, // Auto-refresh every 10 seconds
     refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
+  });
+
+  // Fetch delivery status for DELIVERED/UNDELIVERED documents
+  // Note: We'll need to extract docId from the token or modify the API to include it
+  const { data: deliveryStatus } = useQuery<DeliveryStatusResponse>({
+    queryKey: ["delivery-status", token],
+    queryFn: async () => {
+      if (!token) {
+        throw new Error("No token available");
+      }
+
+      // For now, we'll use the token as the docId - this may need to be adjusted based on your API
+      // You might need to decode the token to get the actual docId
+      return await get<DeliveryStatusResponse>(
+        API_ENDPOINTS.DOC_DELIVERY_STATUS(token)
+      );
+    },
+    enabled:
+      !!token &&
+      !!trackingData &&
+      (trackingData.status === "DELIVERED" ||
+        trackingData.status === "UNDELIVERED"),
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    refetchIntervalInBackground: true,
   });
 
   // Initialize and update Google Map
@@ -189,7 +216,7 @@ const PublicTracking: React.FC = () => {
         return {
           icon: <Cancel />,
           color: "error" as const,
-          label: "Undelivered",
+          label: "DELIVERY FAILED",
         };
       case "ON_TRIP":
         return {
@@ -298,13 +325,18 @@ const PublicTracking: React.FC = () => {
         </Box>
 
         {/* Additional Information */}
-        {trackingData.comment && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Note:</strong> {trackingData.comment}
-            </Typography>
-          </Box>
-        )}
+        {trackingData.comment &&
+          !(
+            (trackingData.status === "DELIVERED" ||
+              trackingData.status === "UNDELIVERED") &&
+            deliveryStatus
+          ) && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Note:</strong> {trackingData.comment}
+              </Typography>
+            </Box>
+          )}
 
         {trackingData.deliveryTimestamp && (
           <Box sx={{ mt: 1 }}>
@@ -386,6 +418,55 @@ const PublicTracking: React.FC = () => {
                   longer than estimated.
                 </Typography>
               </Alert>
+            </Box>
+          )}
+
+        {/* Delivery Status Information for DELIVERED/UNDELIVERED */}
+        {(trackingData.status === "DELIVERED" ||
+          trackingData.status === "UNDELIVERED") &&
+          deliveryStatus && (
+            <Box sx={{ mt: 2 }}>
+              {/* Signature */}
+              {deliveryStatus.signature && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 1, fontWeight: "bold" }}
+                  >
+                    Delivery Signature:
+                  </Typography>
+                  <img
+                    src={`data:image/png;base64,${deliveryStatus.signature}`}
+                    alt="Delivery Signature"
+                    style={{
+                      maxWidth: "120px",
+                      maxHeight: "80px",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      display: "block",
+                    }}
+                  />
+                </Box>
+              )}
+
+              {/* Comments */}
+              {deliveryStatus.comment && (
+                <Box>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 1, fontWeight: "bold" }}
+                  >
+                    Note:
+                  </Typography>
+                  <Alert severity="info" sx={{ borderRadius: 2 }}>
+                    <Typography variant="body2">
+                      {deliveryStatus.comment}
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
             </Box>
           )}
       </Paper>

@@ -24,6 +24,8 @@ export const API_ENDPOINTS = {
   RESTORE_BACKUP: `${API_BASE_URL}/setting/restore`,
   DOWNLOAD_BACKUP: (filename: string) =>
     `${API_BASE_URL}/setting/backup/download/${filename}`,
+  DOC_DELIVERY_STATUS: (docId: string) =>
+    `${API_BASE_URL}/doc/delivery-status/${docId}`,
 } as const;
 
 // Setting Names
