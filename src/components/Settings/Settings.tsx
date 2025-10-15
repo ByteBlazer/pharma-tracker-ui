@@ -647,6 +647,9 @@ const Settings: React.FC = () => {
               flexBasis: "100%",
               display: "flex",
               justifyContent: "center",
+              overflow: "hidden", // Prevent horizontal overflow
+              width: "100%",
+              px: 1, // Add horizontal padding to show card borders
             }}
           >
             <Card sx={{ width: "100%", maxWidth: "900px", minWidth: "280px" }}>
@@ -695,8 +698,15 @@ const Settings: React.FC = () => {
                   </Box>
                 ) : backupListData?.backups &&
                   backupListData.backups.length > 0 ? (
-                  <TableContainer sx={{ maxHeight: 300, mb: 2 }}>
-                    <Table size="small" stickyHeader>
+                  <TableContainer
+                    sx={{
+                      maxHeight: 300,
+                      mb: 2,
+                      width: "100%",
+                      overflowX: "auto",
+                    }}
+                  >
+                    <Table size="small" stickyHeader sx={{ minWidth: 650 }}>
                       <TableHead>
                         <TableRow>
                           <TableCell>Environment</TableCell>
