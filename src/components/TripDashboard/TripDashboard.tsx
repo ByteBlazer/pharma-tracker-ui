@@ -39,7 +39,9 @@ import {
   AllTripsResponse,
   TripStatus,
   MapMarker,
+  DocStatus,
 } from "../../types/Trip";
+import { DeliveryStatusResponse } from "../../types/DeliveryStatus";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 
@@ -54,100 +56,20 @@ declare global {
 interface GoogleMapProps {
   markers: MapMarker[];
   onMarkerClick: (tripId: number) => void;
+  onCustomerMarkerClick: (marker: any, markerData: MapMarker) => void;
   height: string;
 }
 
 const GoogleMap: React.FC<GoogleMapProps> = ({
   markers,
   onMarkerClick,
+  onCustomerMarkerClick,
   height,
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const infoWindowRef = useRef<any>(null);
-
-  // Function to show customer info window
-  const showCustomerInfoWindow = (marker: any, markerData: MapMarker) => {
-    if (!infoWindowRef.current || !markerData.customerInfo) return;
-
-    const trackingUrl = generateTrackingUrl(
-      markerData.id.replace("customer-", "")
-    );
-
-    const content = `
-      <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 300px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">${
-          markerData.customerInfo.firmName
-        }</h4>
-        <p style="margin: 4px 0; color: #666; font-size: 14px;">
-          <strong>Address:</strong> ${markerData.customerInfo.address}, ${
-      markerData.customerInfo.city
-    }
-        </p>
-        <p style="margin: 4px 0; color: #666; font-size: 14px;">
-          <strong>Phone:</strong> ${markerData.customerInfo.phone}
-        </p>
-        <p style="margin: 4px 0; color: #333; font-size: 14px;">
-          <strong>Status:</strong> 
-          <span style="color: ${getStatusColor(
-            markerData.status
-          )}; font-weight: bold;">
-            ${markerData.status || "Unknown"}
-          </span>
-        </p>
-        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
-          <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
-            Tracking URL:
-          </p>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <input 
-              type="text" 
-              value="${trackingUrl}" 
-              readonly 
-              style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; background: #f5f5f5;"
-              id="tracking-url-${markerData.id}"
-            />
-            <button 
-              onclick="copyToClipboard('tracking-url-${markerData.id}')"
-              style="padding: 4px 8px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
-            >
-              Copy
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Add global copy function
-    (window as any).copyToClipboard = (inputId: string) => {
-      const input = document.getElementById(inputId) as HTMLInputElement;
-      if (input) {
-        input.select();
-        document.execCommand("copy");
-        // You could add a toast notification here
-      }
-    };
-
-    infoWindowRef.current.setContent(content);
-    infoWindowRef.current.open(mapInstanceRef.current, marker);
-  };
-
-  // Helper function to get status color
-  const getStatusColor = (status?: string): string => {
-    switch (status) {
-      case "DELIVERED":
-        return "#4caf50";
-      case "UNDELIVERED":
-        return "#f44336";
-      case "ON_TRIP":
-        return "#2196f3";
-      case "AT_TRANSIT_HUB":
-        return "#ff9800";
-      default:
-        return "#666";
-    }
-  };
 
   useEffect(() => {
     if (!mapRef.current || !window.google) return;
@@ -220,7 +142,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
       marker.addListener("click", () => {
         if (markerData.type === "customer" && markerData.customerInfo) {
           // Show info window for customer markers
-          showCustomerInfoWindow(marker, markerData);
+          onCustomerMarkerClick(marker, markerData);
         } else if (markerData.tripId) {
           // Handle driver marker clicks (existing behavior)
           onMarkerClick(markerData.tripId);
@@ -598,6 +520,141 @@ const TripCard: React.FC<TripCardProps> = ({
 const TripDashboard: React.FC = () => {
   const { get, post } = useApiService();
   const queryClient = useQueryClient();
+  const infoWindowRef = useRef<any>(null);
+
+  // Function to show customer info window
+  const showCustomerInfoWindow = async (marker: any, markerData: MapMarker) => {
+    if (!infoWindowRef.current || !markerData.customerInfo) return;
+
+    const docId = markerData.id.replace("customer-", "");
+    const trackingUrl = generateTrackingUrl(docId);
+
+    // Show basic info first
+    let content = `
+      <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 300px;">
+        <h4 style="margin: 0 0 8px 0; color: #333;">${
+          markerData.customerInfo.firmName
+        }</h4>
+        <p style="margin: 4px 0; color: #666; font-size: 14px;">
+          <strong>Address:</strong> ${markerData.customerInfo.address}, ${
+      markerData.customerInfo.city
+    }
+        </p>
+        <p style="margin: 4px 0; color: #666; font-size: 14px;">
+          <strong>Phone:</strong> ${markerData.customerInfo.phone}
+        </p>
+        <p style="margin: 4px 0; color: #333; font-size: 14px;">
+          <strong>Status:</strong> 
+          <span style="color: ${getStatusColor(
+            markerData.status
+          )}; font-weight: bold;">
+            ${
+              markerData.status === DocStatus.UNDELIVERED
+                ? "DELIVERY FAILED"
+                : markerData.status || "Unknown"
+            }
+          </span>
+        </p>
+    `;
+
+    // If status is DELIVERED or UNDELIVERED, fetch delivery status
+    if (
+      markerData.status === DocStatus.DELIVERED ||
+      markerData.status === DocStatus.UNDELIVERED
+    ) {
+      try {
+        const deliveryStatus = await get<DeliveryStatusResponse>(
+          API_ENDPOINTS.DOC_DELIVERY_STATUS(docId)
+        );
+
+        if (deliveryStatus.success) {
+          // Add signature if available
+          if (deliveryStatus.signature) {
+            content += `
+              <div style="margin: 12px 0;">
+                <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+                  Signature:
+                </p>
+                <img src="data:image/png;base64,${deliveryStatus.signature}" 
+                     style="max-width: 100px; max-height: 60px; border: 1px solid #ddd; border-radius: 4px;"
+                     alt="Delivery Signature" />
+              </div>
+            `;
+          }
+
+          // Add comments if available
+          if (deliveryStatus.comment) {
+            content += `
+              <div style="margin: 12px 0;">
+                <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+                  Comments:
+                </p>
+                <p style="margin: 4px 0; color: #333; font-size: 12px; background: #f5f5f5; padding: 8px; border-radius: 4px;">
+                  ${deliveryStatus.comment}
+                </p>
+              </div>
+            `;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch delivery status:", error);
+        // Continue without delivery status info
+      }
+    }
+
+    content += `
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
+          <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+            Tracking URL:
+          </p>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <input 
+              type="text" 
+              value="${trackingUrl}" 
+              readonly 
+              style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; background: #f5f5f5;"
+              id="tracking-url-${markerData.id}"
+            />
+            <button 
+              onclick="copyToClipboard('tracking-url-${markerData.id}')"
+              style="padding: 4px 8px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add global copy function
+    (window as any).copyToClipboard = (inputId: string) => {
+      const input = document.getElementById(inputId) as HTMLInputElement;
+      if (input) {
+        input.select();
+        document.execCommand("copy");
+        // You could add a toast notification here
+      }
+    };
+
+    infoWindowRef.current.setContent(content);
+    infoWindowRef.current.open(marker.getMap(), marker);
+  };
+
+  // Helper function to get status color
+  const getStatusColor = (status?: string): string => {
+    switch (status) {
+      case DocStatus.DELIVERED:
+        return "#4caf50";
+      case DocStatus.UNDELIVERED:
+        return "#f44336";
+      case DocStatus.ON_TRIP:
+        return "#2196f3";
+      case DocStatus.AT_TRANSIT_HUB:
+        return "#ff9800";
+      default:
+        return "#666";
+    }
+  };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -800,10 +857,10 @@ const TripDashboard: React.FC = () => {
         if (!doc.lot) {
           totalDeliveries++;
           switch (doc.status) {
-            case "DELIVERED":
+            case DocStatus.DELIVERED:
               completedDeliveries++;
               break;
-            case "UNDELIVERED":
+            case DocStatus.UNDELIVERED:
               failedDeliveries++;
               break;
             default:
@@ -859,6 +916,19 @@ const TripDashboard: React.FC = () => {
       durationLabel,
     };
   };
+
+  // Initialize InfoWindow
+  useEffect(() => {
+    if (window.google) {
+      infoWindowRef.current = new window.google.maps.InfoWindow();
+    }
+
+    return () => {
+      if (infoWindowRef.current) {
+        infoWindowRef.current.close();
+      }
+    };
+  }, []);
 
   // Generate map markers - show filtered drivers when no trip is selected
   useEffect(() => {
@@ -1189,6 +1259,7 @@ const TripDashboard: React.FC = () => {
               <GoogleMap
                 markers={mapMarkers}
                 onMarkerClick={handleMarkerClick}
+                onCustomerMarkerClick={showCustomerInfoWindow}
                 height={isMobile ? "400px" : "600px"}
               />
 
