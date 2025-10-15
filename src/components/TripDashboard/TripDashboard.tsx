@@ -1203,15 +1203,8 @@ const TripDashboard: React.FC = () => {
         {/* Google Map */}
         <Box sx={{ flex: { xs: "1", md: "0 0 67%" } }}>
           <Paper sx={{ p: 2 }}>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 2,
-                gap: 1,
-              }}
-            >
+            {/* Map Heading */}
+            <Box sx={{ mb: 2 }}>
               <Typography variant="h6">
                 {selectedTripId && selectedTrip
                   ? `Trip #${selectedTripId} - ${selectedTrip.route}`
@@ -1223,7 +1216,20 @@ const TripDashboard: React.FC = () => {
                   ? "Select a Trip to View Details"
                   : "Select a Trip to View Details"}
               </Typography>
-              <Box sx={{ display: "flex", gap: 1 }}>
+            </Box>
+
+            {/* Action Buttons Row */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2,
+                gap: 2,
+              }}
+            >
+              {/* Left side - Show All Trips button */}
+              <Box>
                 {selectedTripId && (
                   <Button
                     variant="contained"
@@ -1235,11 +1241,15 @@ const TripDashboard: React.FC = () => {
                       px: 2,
                     }}
                   >
-                    {activeTab === 0 && "Show All Ongoing Trips"}
-                    {activeTab === 1 && "Show All Scheduled Trips"}
-                    {activeTab === 2 && "Show All Ended Trips"}
+                    {activeTab === 0 && "Show All Trips"}
+                    {activeTab === 1 && "Show All Trips"}
+                    {activeTab === 2 && "Show All Trips"}
                   </Button>
                 )}
+              </Box>
+
+              {/* Right side - Refresh button */}
+              <Box>
                 <Button
                   variant="outlined"
                   size="small"
