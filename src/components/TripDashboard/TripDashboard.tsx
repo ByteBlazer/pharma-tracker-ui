@@ -1563,8 +1563,8 @@ const TripDashboard: React.FC = () => {
             </Typography>
             <Typography variant="body2">
               All pending deliveries will be automatically marked as{" "}
-              <strong>UNDELIVERED</strong>. They can be boarded on the next trip
-              if needed.
+              <strong>FAILED DELIVERY</strong>. They can be boarded on the next
+              trip if needed.
             </Typography>
           </Alert>
           <Typography variant="body2" color="text.secondary">

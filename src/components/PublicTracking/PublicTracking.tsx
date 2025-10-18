@@ -37,7 +37,9 @@ const PublicTracking: React.FC = () => {
     if (etaMinutes < 1) {
       return "Less than a minute";
     } else if (etaMinutes < 60) {
-      return `${Math.round(etaMinutes)} minutes`;
+      return Math.round(etaMinutes) === 1
+        ? "1 minute"
+        : `${Math.round(etaMinutes)} minutes`;
     } else {
       const hours = Math.floor(etaMinutes / 60);
       const minutes = Math.round(etaMinutes % 60);
