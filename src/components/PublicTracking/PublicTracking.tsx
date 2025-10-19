@@ -398,20 +398,27 @@ const PublicTracking: React.FC = () => {
                   updateTime.getFullYear() === today.getFullYear();
 
                 if (isToday) {
-                  // Show only time for today (without seconds)
-                  return updateTime.toLocaleTimeString([], {
-                    hour: "2-digit",
+                  // Show only time for today (IST timezone, 12-hour format)
+                  return updateTime.toLocaleTimeString("en-US", {
+                    hour: "numeric",
                     minute: "2-digit",
+                    hour12: true,
+                    timeZone: "Asia/Kolkata",
                   });
                 } else {
-                  // Show full date and time for other days (without seconds)
-                  return updateTime.toLocaleString([], {
-                    year: "numeric",
-                    month: "2-digit",
-                    day: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
+                  // Show date and time for other days (IST timezone, no year, 12-hour format)
+                  const dateStr = updateTime.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    timeZone: "Asia/Kolkata",
                   });
+                  const timeStr = updateTime.toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true,
+                    timeZone: "Asia/Kolkata",
+                  });
+                  return `${dateStr} ${timeStr}`;
                 }
               })()}
             </Typography>
