@@ -209,7 +209,7 @@ const getMarkerIcon = (marker: MapMarker): string | any => {
 const generateTrackingUrl = (docId: string): string => {
   const token = btoa(docId); // Base64 encode the docId
   const baseUrl = window.location.origin;
-  return `${baseUrl}/tracking?token=${token}`;
+  return `${baseUrl}/track?t=${token}`;
 };
 
 // Trip card component
@@ -1264,7 +1264,7 @@ const TripDashboard: React.FC = () => {
                 >
                   <Typography variant="body2">
                     👋 The map is now showing all driver locations. Click on a
-                    trip card to view that trip's details alone!
+                    trip card to view that trip's details alone.
                   </Typography>
                 </Box>
 

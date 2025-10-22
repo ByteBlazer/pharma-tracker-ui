@@ -22,7 +22,7 @@ import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 
 const PublicTracking: React.FC = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token");
+  const token = searchParams.get("t");
   const { get } = useApiService();
 
   const mapRef = useRef<HTMLDivElement>(null);
