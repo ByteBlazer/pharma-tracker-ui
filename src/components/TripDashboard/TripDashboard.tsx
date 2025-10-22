@@ -209,7 +209,7 @@ const getMarkerIcon = (marker: MapMarker): string | any => {
 const generateTrackingUrl = (docId: string): string => {
   const token = btoa(docId); // Base64 encode the docId
   const baseUrl = window.location.origin;
-  return `${baseUrl}/tracking?token=${token}`;
+  return `${baseUrl}/track?t=${token}`;
 };
 
 // Trip card component
