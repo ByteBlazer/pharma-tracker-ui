@@ -34,13 +34,11 @@ import {
   Map,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
-import {
-  Trip,
-  AllTripsResponse,
-  TripStatus,
-  MapMarker,
-  DocStatus,
-} from "../../types/Trip";
+import { Trip } from "../../types/Trip";
+import { AllTripsResponse } from "../../types/AllTripsResponse";
+import { TripStatus } from "../../types/TripStatus";
+import { MapMarker } from "../../types/MapMarker";
+import { DocStatus } from "../../types/DocStatus";
 import { DeliveryStatusResponse } from "../../types/DeliveryStatus";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
