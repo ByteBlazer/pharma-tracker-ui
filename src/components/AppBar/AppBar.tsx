@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   AppBar as MuiAppBar,
   Toolbar,
@@ -8,6 +8,10 @@ import {
   IconButton,
   useMediaQuery,
   useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import {
   Home as HomeIcon,
@@ -35,10 +39,20 @@ const AppBar: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const { clearJwtToken } = useContext(GlobalContext);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const handleLogout = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const handleLogoutConfirm = () => {
     clearJwtToken();
     navigate("/login");
+    setLogoutDialogOpen(false);
+  };
+
+  const handleLogoutCancel = () => {
+    setLogoutDialogOpen(false);
   };
 
   const isActive = (path: string) => {
@@ -147,6 +161,43 @@ const AppBar: React.FC = () => {
           </IconButton>
         </Box>
       </Toolbar>
+
+      {/* Logout Confirmation Dialog */}
+      <Dialog
+        open={logoutDialogOpen}
+        onClose={handleLogoutCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <LogoutIcon sx={{ color: "primary.main" }} />
+            Confirm Logout
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Are you sure you want to logout?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={handleLogoutCancel}
+            variant="outlined"
+            color="inherit"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleLogoutConfirm}
+            variant="contained"
+            color="primary"
+            startIcon={<LogoutIcon />}
+          >
+            Logout
+          </Button>
+        </DialogActions>
+      </Dialog>
     </MuiAppBar>
   );
 };

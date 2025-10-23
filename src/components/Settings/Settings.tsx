@@ -33,17 +33,16 @@ import {
   Restore,
   Download,
   Sync,
+  Sms,
 } from "@mui/icons-material";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useApiService } from "../../hooks/useApiService";
 import { Setting } from "../../types/Setting";
 import { API_ENDPOINTS, SETTING_NAMES } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
-import {
-  BackupListResponse,
-  BackupFile,
-  RestoreBackupRequest,
-} from "../../types/Backup";
+import { BackupListResponse } from "../../types/BackupListResponse";
+import { BackupFile } from "../../types/BackupFile";
+import { RestoreBackupRequest } from "../../types/RestoreBackupRequest";
 import { useContext } from "react";
 import { GlobalContext } from "../GlobalContextProvider";
 
@@ -54,6 +53,7 @@ const Settings: React.FC = () => {
   const [coolOffValue, setCoolOffValue] = useState("");
   const [heartbeatValue, setHeartbeatValue] = useState("");
   const [updateDocStatusValue, setUpdateDocStatusValue] = useState("");
+  const [sendTrackingSmsValue, setSendTrackingSmsValue] = useState("");
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<BackupFile | null>(null);
   const [restorePasskey, setRestorePasskey] = useState("");
@@ -91,6 +91,14 @@ const Settings: React.FC = () => {
       queryKey: ["setting", SETTING_NAMES.UPDATE_DOC_STATUS_TO_ERP],
       queryFn: () =>
         get(API_ENDPOINTS.SETTING(SETTING_NAMES.UPDATE_DOC_STATUS_TO_ERP)),
+    });
+
+  // Fetch send tracking SMS setting
+  const { data: sendTrackingSmsSetting, isLoading: sendTrackingSmsLoading } =
+    useQuery<Setting>({
+      queryKey: ["setting", SETTING_NAMES.SEND_TRACKING_SMS],
+      queryFn: () =>
+        get(API_ENDPOINTS.SETTING(SETTING_NAMES.SEND_TRACKING_SMS)),
     });
 
   // Update cool off setting mutation
@@ -134,6 +142,20 @@ const Settings: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["setting", SETTING_NAMES.UPDATE_DOC_STATUS_TO_ERP],
+      });
+    },
+  });
+
+  // Update send tracking SMS setting mutation
+  const sendTrackingSmsMutation = useMutation({
+    mutationFn: (value: string) =>
+      put(API_ENDPOINTS.UPDATE_SETTING, {
+        settingName: SETTING_NAMES.SEND_TRACKING_SMS,
+        settingValue: value,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["setting", SETTING_NAMES.SEND_TRACKING_SMS],
       });
     },
   });
@@ -187,6 +209,12 @@ const Settings: React.FC = () => {
     }
   }, [updateDocStatusSetting]);
 
+  useEffect(() => {
+    if (sendTrackingSmsSetting?.settingValue) {
+      setSendTrackingSmsValue(sendTrackingSmsSetting.settingValue);
+    }
+  }, [sendTrackingSmsSetting]);
+
   const handleCoolOffSave = () => {
     coolOffMutation.mutate(coolOffValue);
   };
@@ -197,6 +225,10 @@ const Settings: React.FC = () => {
 
   const handleUpdateDocStatusSave = () => {
     updateDocStatusMutation.mutate(updateDocStatusValue);
+  };
+
+  const handleSendTrackingSmsSave = () => {
+    sendTrackingSmsMutation.mutate(sendTrackingSmsValue);
   };
 
   const handleCreateBackup = () => {
@@ -333,6 +365,14 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleSendTrackingSmsChange = (value: string) => {
+    setSendTrackingSmsValue(value);
+    // Reset mutation state when user changes value
+    if (sendTrackingSmsMutation.isSuccess) {
+      sendTrackingSmsMutation.reset();
+    }
+  };
+
   // Cool off options (seconds)
   const coolOffOptions = [
     { value: "30", label: "30 seconds" },
@@ -369,7 +409,12 @@ const Settings: React.FC = () => {
       : []),
   ];
 
-  if (coolOffLoading || heartbeatLoading || updateDocStatusLoading) {
+  if (
+    coolOffLoading ||
+    heartbeatLoading ||
+    updateDocStatusLoading ||
+    sendTrackingSmsLoading
+  ) {
     return (
       <Box
         sx={{
@@ -573,6 +618,54 @@ const Settings: React.FC = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Send Tracking SMS Setting */}
+          <Card
+            sx={{ flex: "1 1 300px", maxWidth: "400px", minWidth: "280px" }}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <Sms color="primary" sx={{ mr: 2 }} />
+                <Typography variant="h6">Send Tracking SMS</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Controls whether tracking SMS alerts are sent to customers when
+                a document is on trip.
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Enable SMS Alerts</InputLabel>
+                <Select
+                  value={sendTrackingSmsValue || ""}
+                  onChange={(e) => handleSendTrackingSmsChange(e.target.value)}
+                  label="Enable SMS Notifications"
+                  displayEmpty
+                >
+                  <MenuItem value="true">Enabled</MenuItem>
+                  <MenuItem value="false">Disabled</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
+                variant="contained"
+                onClick={handleSendTrackingSmsSave}
+                disabled={sendTrackingSmsMutation.isPending}
+                fullWidth
+              >
+                {sendTrackingSmsMutation.isPending
+                  ? "Saving..."
+                  : "Save Setting"}
+              </Button>
+              {sendTrackingSmsMutation.isError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  Failed to save setting. Please try again.
+                </Alert>
+              )}
+              {sendTrackingSmsMutation.isSuccess && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  Setting saved successfully!
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
         </Box>
       </Box>
 
@@ -647,6 +740,9 @@ const Settings: React.FC = () => {
               flexBasis: "100%",
               display: "flex",
               justifyContent: "center",
+              overflow: "hidden", // Prevent horizontal overflow
+              width: "100%",
+              px: 1, // Add horizontal padding to show card borders
             }}
           >
             <Card sx={{ width: "100%", maxWidth: "900px", minWidth: "280px" }}>
@@ -695,8 +791,15 @@ const Settings: React.FC = () => {
                   </Box>
                 ) : backupListData?.backups &&
                   backupListData.backups.length > 0 ? (
-                  <TableContainer sx={{ maxHeight: 300, mb: 2 }}>
-                    <Table size="small" stickyHeader>
+                  <TableContainer
+                    sx={{
+                      maxHeight: 300,
+                      mb: 2,
+                      width: "100%",
+                      overflowX: "auto",
+                    }}
+                  >
+                    <Table size="small" stickyHeader sx={{ minWidth: 650 }}>
                       <TableHead>
                         <TableRow>
                           <TableCell>Environment</TableCell>
@@ -773,12 +876,6 @@ const Settings: React.FC = () => {
                     No backups available. Create a backup first.
                   </Alert>
                 )}
-
-                <Alert severity="warning">
-                  <Typography variant="caption">
-                    Passkey is required for restore.
-                  </Typography>
-                </Alert>
               </CardContent>
             </Card>
           </Box>
@@ -797,6 +894,10 @@ const Settings: React.FC = () => {
       <ModalInfiniteSpinner
         condition={updateDocStatusMutation.isPending}
         title="Saving ERP Update Setting..."
+      />
+      <ModalInfiniteSpinner
+        condition={sendTrackingSmsMutation.isPending}
+        title="Saving SMS Notification Setting..."
       />
       <ModalInfiniteSpinner
         condition={createBackupMutation.isPending}

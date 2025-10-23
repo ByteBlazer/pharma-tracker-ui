@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
@@ -34,12 +34,12 @@ import {
   Map,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
-import {
-  Trip,
-  AllTripsResponse,
-  TripStatus,
-  MapMarker,
-} from "../../types/Trip";
+import { Trip } from "../../types/Trip";
+import { AllTripsResponse } from "../../types/AllTripsResponse";
+import { TripStatus } from "../../types/TripStatus";
+import { MapMarker } from "../../types/MapMarker";
+import { DocStatus } from "../../types/DocStatus";
+import { DeliveryStatusResponse } from "../../types/DeliveryStatus";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 
@@ -54,100 +54,22 @@ declare global {
 interface GoogleMapProps {
   markers: MapMarker[];
   onMarkerClick: (tripId: number) => void;
+  onCustomerMarkerClick: (marker: any, markerData: MapMarker) => void;
+  selectedTripId: number | null;
   height: string;
 }
 
 const GoogleMap: React.FC<GoogleMapProps> = ({
   markers,
   onMarkerClick,
+  onCustomerMarkerClick,
+  selectedTripId,
   height,
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const infoWindowRef = useRef<any>(null);
-
-  // Function to show customer info window
-  const showCustomerInfoWindow = (marker: any, markerData: MapMarker) => {
-    if (!infoWindowRef.current || !markerData.customerInfo) return;
-
-    const trackingUrl = generateTrackingUrl(
-      markerData.id.replace("customer-", "")
-    );
-
-    const content = `
-      <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 300px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">${
-          markerData.customerInfo.firmName
-        }</h4>
-        <p style="margin: 4px 0; color: #666; font-size: 14px;">
-          <strong>Address:</strong> ${markerData.customerInfo.address}, ${
-      markerData.customerInfo.city
-    }
-        </p>
-        <p style="margin: 4px 0; color: #666; font-size: 14px;">
-          <strong>Phone:</strong> ${markerData.customerInfo.phone}
-        </p>
-        <p style="margin: 4px 0; color: #333; font-size: 14px;">
-          <strong>Status:</strong> 
-          <span style="color: ${getStatusColor(
-            markerData.status
-          )}; font-weight: bold;">
-            ${markerData.status || "Unknown"}
-          </span>
-        </p>
-        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
-          <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
-            Tracking URL:
-          </p>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <input 
-              type="text" 
-              value="${trackingUrl}" 
-              readonly 
-              style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; background: #f5f5f5;"
-              id="tracking-url-${markerData.id}"
-            />
-            <button 
-              onclick="copyToClipboard('tracking-url-${markerData.id}')"
-              style="padding: 4px 8px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
-            >
-              Copy
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Add global copy function
-    (window as any).copyToClipboard = (inputId: string) => {
-      const input = document.getElementById(inputId) as HTMLInputElement;
-      if (input) {
-        input.select();
-        document.execCommand("copy");
-        // You could add a toast notification here
-      }
-    };
-
-    infoWindowRef.current.setContent(content);
-    infoWindowRef.current.open(mapInstanceRef.current, marker);
-  };
-
-  // Helper function to get status color
-  const getStatusColor = (status?: string): string => {
-    switch (status) {
-      case "DELIVERED":
-        return "#4caf50";
-      case "UNDELIVERED":
-        return "#f44336";
-      case "ON_TRIP":
-        return "#2196f3";
-      case "AT_TRANSIT_HUB":
-        return "#ff9800";
-      default:
-        return "#666";
-    }
-  };
 
   useEffect(() => {
     if (!mapRef.current || !window.google) return;
@@ -158,7 +80,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
       center: { lat: 9.9312, lng: 76.2673 }, // Kochi, Kerala as default center
       mapTypeId: window.google.maps.MapTypeId.ROADMAP,
       minZoom: 4,
-      maxZoom: 18, // Restrict maximum zoom level to 15
+      maxZoom: 20,
     });
 
     mapInstanceRef.current = map;
@@ -212,7 +134,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
         map: mapInstanceRef.current,
         title: markerData.title,
         icon: markerIcon,
-        zIndex: markerData.type === "driver" ? 1000 : 100, // Driver markers always on top
+        zIndex: markerData.type === "customer" ? 1000 : 100, // Customer markers always on top
         optimized: markerData.type === "driver" ? false : true, // Disable optimization for driver to allow animation
       });
 
@@ -220,10 +142,13 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
       marker.addListener("click", () => {
         if (markerData.type === "customer" && markerData.customerInfo) {
           // Show info window for customer markers
-          showCustomerInfoWindow(marker, markerData);
+          onCustomerMarkerClick(marker, markerData);
         } else if (markerData.tripId) {
-          // Handle driver marker clicks (existing behavior)
-          onMarkerClick(markerData.tripId);
+          // Handle driver marker clicks only if no trip is selected
+          if (!selectedTripId) {
+            onMarkerClick(markerData.tripId);
+          }
+          // If a trip is already selected, do nothing (marker is non-clickable)
         }
       });
 
@@ -265,8 +190,8 @@ const getMarkerIcon = (marker: MapMarker): string | any => {
   if (marker.type === "driver") {
     return {
       url: "/truck-front.png",
-      scaledSize: new window.google.maps.Size(75, 75),
-      anchor: new window.google.maps.Point(37.5, 37.5),
+      scaledSize: new window.google.maps.Size(60, 60),
+      anchor: new window.google.maps.Point(30, 30),
     };
   }
 
@@ -282,7 +207,7 @@ const getMarkerIcon = (marker: MapMarker): string | any => {
 const generateTrackingUrl = (docId: string): string => {
   const token = btoa(docId); // Base64 encode the docId
   const baseUrl = window.location.origin;
-  return `${baseUrl}/tracking?token=${token}`;
+  return `${baseUrl}/track?t=${token}`;
 };
 
 // Trip card component
@@ -305,7 +230,7 @@ const TripCard: React.FC<TripCardProps> = ({
   const getStatusColor = (status: TripStatus) => {
     switch (status) {
       case TripStatus.STARTED:
-        return "success";
+        return "primary";
       case TripStatus.SCHEDULED:
         return "warning";
       case TripStatus.ENDED:
@@ -352,27 +277,34 @@ const TripCard: React.FC<TripCardProps> = ({
       onClick={onClick}
     >
       <CardContent sx={{ p: 2 }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            mb: 1,
-          }}
-        >
-          <Typography variant="h6" component="div" sx={{ fontWeight: "bold" }}>
+        <Box sx={{ mb: 1 }}>
+          <Typography
+            variant="h6"
+            component="div"
+            sx={{
+              fontWeight: "bold",
+              fontSize: { xs: "1rem", sm: "1.1rem", md: "1.25rem" },
+            }}
+          >
             {trip.route}
           </Typography>
-          <Chip
-            icon={getStatusIcon(trip.status)}
-            label={trip.status}
-            color={getStatusColor(trip.status)}
-            size="small"
-          />
         </Box>
 
         {!isExpanded && (
-          <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mt: 1,
+            }}
+          >
+            <Chip
+              icon={getStatusIcon(trip.status)}
+              label={trip.status}
+              color={getStatusColor(trip.status)}
+              size="small"
+            />
             <Typography
               variant="body2"
               color="primary"
@@ -420,16 +352,135 @@ const TripCard: React.FC<TripCardProps> = ({
             <Divider sx={{ my: 1 }} />
 
             <Typography variant="caption" color="text.secondary">
-              Created: {new Date(trip.createdAt).toLocaleString()}
+              Created:{" "}
+              {(() => {
+                const createdDate = new Date(trip.createdAt);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                const isToday =
+                  createdDate.getDate() === today.getDate() &&
+                  createdDate.getMonth() === today.getMonth() &&
+                  createdDate.getFullYear() === today.getFullYear();
+
+                const isYesterday =
+                  createdDate.getDate() === yesterday.getDate() &&
+                  createdDate.getMonth() === yesterday.getMonth() &&
+                  createdDate.getFullYear() === yesterday.getFullYear();
+
+                if (isToday) {
+                  return `Today ${createdDate.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`;
+                } else if (isYesterday) {
+                  return `Yesterday ${createdDate.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`;
+                } else {
+                  return `${createdDate.toLocaleDateString([], {
+                    month: "short",
+                    day: "numeric",
+                  })} ${createdDate.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}`;
+                }
+              })()}
             </Typography>
-            <br />
-            <Typography variant="caption" color="text.secondary">
-              Started: {new Date(trip.startedAt).toLocaleString()}
-            </Typography>
-            <br />
-            <Typography variant="caption" color="text.secondary">
-              Last Updated: {new Date(trip.lastUpdatedAt).toLocaleString()}
-            </Typography>
+            {/* Only show Started timestamp for non-scheduled trips */}
+            {trip.status !== TripStatus.SCHEDULED && (
+              <>
+                <br />
+                <Typography variant="caption" color="text.secondary">
+                  Started:{" "}
+                  {(() => {
+                    const startedDate = new Date(trip.startedAt);
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    const isToday =
+                      startedDate.getDate() === today.getDate() &&
+                      startedDate.getMonth() === today.getMonth() &&
+                      startedDate.getFullYear() === today.getFullYear();
+
+                    const isYesterday =
+                      startedDate.getDate() === yesterday.getDate() &&
+                      startedDate.getMonth() === yesterday.getMonth() &&
+                      startedDate.getFullYear() === yesterday.getFullYear();
+
+                    if (isToday) {
+                      return `Today ${startedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else if (isYesterday) {
+                      return `Yesterday ${startedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else {
+                      return `${startedDate.toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      })} ${startedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    }
+                  })()}
+                </Typography>
+              </>
+            )}
+
+            {/* Show Ended timestamp for ended trips */}
+            {trip.status === TripStatus.ENDED && (
+              <>
+                <br />
+                <Typography variant="caption" color="text.secondary">
+                  Ended:{" "}
+                  {(() => {
+                    const endedDate = new Date(trip.lastUpdatedAt);
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+
+                    const isToday =
+                      endedDate.getDate() === today.getDate() &&
+                      endedDate.getMonth() === today.getMonth() &&
+                      endedDate.getFullYear() === today.getFullYear();
+
+                    const isYesterday =
+                      endedDate.getDate() === yesterday.getDate() &&
+                      endedDate.getMonth() === yesterday.getMonth() &&
+                      endedDate.getFullYear() === yesterday.getFullYear();
+
+                    if (isToday) {
+                      return `Today ${endedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else if (isYesterday) {
+                      return `Yesterday ${endedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    } else {
+                      return `${endedDate.toLocaleDateString([], {
+                        month: "short",
+                        day: "numeric",
+                      })} ${endedDate.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}`;
+                    }
+                  })()}
+                </Typography>
+              </>
+            )}
 
             {/* Force End Trip Button - Only for ongoing trips */}
             {trip.status === TripStatus.STARTED && onForceEndClick && (
@@ -452,7 +503,20 @@ const TripCard: React.FC<TripCardProps> = ({
               </>
             )}
 
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mt: 1,
+              }}
+            >
+              <Chip
+                icon={getStatusIcon(trip.status)}
+                label={trip.status}
+                color={getStatusColor(trip.status)}
+                size="small"
+              />
               <Typography
                 variant="body2"
                 color="primary"
@@ -479,6 +543,187 @@ const TripCard: React.FC<TripCardProps> = ({
 const TripDashboard: React.FC = () => {
   const { get, post } = useApiService();
   const queryClient = useQueryClient();
+  const infoWindowRef = useRef<any>(null);
+
+  // Function to show customer info window
+  const showCustomerInfoWindow = useCallback(
+    async (marker: any, markerData: MapMarker) => {
+      if (!infoWindowRef.current || !markerData.customerInfo) return;
+
+      const docId = markerData.id.replace("customer-", "");
+      const trackingUrl = generateTrackingUrl(docId);
+
+      // Show basic info first
+      let content = `
+      <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 300px;">
+        <h4 style="margin: 0 0 8px 0; color: #333;">${
+          markerData.customerInfo.firmName
+        }</h4>
+        <p style="margin: 4px 0; color: #666; font-size: 14px;">
+          <strong>Address:</strong> ${markerData.customerInfo.address}, ${
+        markerData.customerInfo.city
+      }
+        </p>
+        <p style="margin: 4px 0; color: #666; font-size: 14px;">
+          <strong>Phone:</strong> ${markerData.customerInfo.phone}
+        </p>
+        <p style="margin: 4px 0; color: #333; font-size: 14px;">
+          <strong>Status:</strong> 
+          <span style="color: ${getStatusColor(
+            markerData.status
+          )}; font-weight: bold;">
+            ${
+              markerData.status === DocStatus.UNDELIVERED
+                ? "DELIVERY FAILED"
+                : markerData.status || "Unknown"
+            }
+          </span>
+        </p>
+    `;
+
+      // If status is DELIVERED or UNDELIVERED, fetch delivery status
+      if (
+        markerData.status === DocStatus.DELIVERED ||
+        markerData.status === DocStatus.UNDELIVERED
+      ) {
+        try {
+          const deliveryStatus = await get<DeliveryStatusResponse>(
+            API_ENDPOINTS.DOC_DELIVERY_STATUS(docId)
+          );
+
+          if (deliveryStatus.success) {
+            // Add signature if available
+            if (deliveryStatus.signature) {
+              content += `
+              <div style="margin: 12px 0;">
+                <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+                  Signature:
+                </p>
+                <img src="data:image/png;base64,${deliveryStatus.signature}" 
+                     style="max-width: 100px; max-height: 60px; border: 1px solid #ddd; border-radius: 4px;"
+                     alt="Delivery Signature" />
+              </div>
+            `;
+            }
+
+            // Add comments if available
+            if (deliveryStatus.comment) {
+              content += `
+              <div style="margin: 12px 0;">
+                <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+                  Comments:
+                </p>
+                <p style="margin: 4px 0; color: #333; font-size: 12px; background: #f5f5f5; padding: 8px; border-radius: 4px;">
+                  ${deliveryStatus.comment}
+                </p>
+              </div>
+            `;
+            }
+
+            // Add delivery timestamp if available
+            if (deliveryStatus.deliveredAt) {
+              const deliveredDate = new Date(deliveryStatus.deliveredAt);
+              const today = new Date();
+
+              const isToday =
+                deliveredDate.getDate() === today.getDate() &&
+                deliveredDate.getMonth() === today.getMonth() &&
+                deliveredDate.getFullYear() === today.getFullYear();
+
+              const timeStr = deliveredDate.toLocaleTimeString("en-IN", {
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true,
+                timeZone: "Asia/Kolkata",
+              });
+
+              const statusText =
+                markerData.status === DocStatus.UNDELIVERED
+                  ? "DELIVERY FAILED"
+                  : "DELIVERED";
+
+              let timestampStr;
+              if (isToday) {
+                timestampStr = `${statusText} at ${timeStr} today`;
+              } else {
+                const dateStr = deliveredDate.toLocaleDateString("en-IN", {
+                  month: "short",
+                  day: "numeric",
+                  timeZone: "Asia/Kolkata",
+                });
+                timestampStr = `${statusText} at ${timeStr} on ${dateStr}`;
+              }
+
+              // Update the status display with timestamp
+              content = content.replace(
+                /<span style="color: [^"]+; font-weight: bold;">[^<]*<\/span>/,
+                `<span style="color: ${getStatusColor(
+                  markerData.status
+                )}; font-weight: bold;">${timestampStr}</span>`
+              );
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch delivery status:", error);
+          // Continue without delivery status info
+        }
+      }
+
+      content += `
+        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
+          <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+            Tracking URL:
+          </p>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <input 
+              type="text" 
+              value="${trackingUrl}" 
+              readonly 
+              style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; background: #f5f5f5;"
+              id="tracking-url-${markerData.id}"
+            />
+            <button 
+              onclick="copyToClipboard('tracking-url-${markerData.id}')"
+              style="padding: 4px 8px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+      // Add global copy function
+      (window as any).copyToClipboard = (inputId: string) => {
+        const input = document.getElementById(inputId) as HTMLInputElement;
+        if (input) {
+          input.select();
+          document.execCommand("copy");
+          // You could add a toast notification here
+        }
+      };
+
+      infoWindowRef.current.setContent(content);
+      infoWindowRef.current.open(marker.getMap(), marker);
+    },
+    [get]
+  );
+
+  // Helper function to get status color
+  const getStatusColor = (status?: string): string => {
+    switch (status) {
+      case DocStatus.DELIVERED:
+        return "#4caf50";
+      case DocStatus.UNDELIVERED:
+        return "#f44336";
+      case DocStatus.ON_TRIP:
+        return "#2196f3";
+      case DocStatus.AT_TRANSIT_HUB:
+        return "#ff9800";
+      default:
+        return "#666";
+    }
+  };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -490,6 +735,7 @@ const TripDashboard: React.FC = () => {
   const [forceEndDialogOpen, setForceEndDialogOpen] = useState(false);
   const [tripToForceEnd, setTripToForceEnd] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>("");
+  const [refreshCountdown, setRefreshCountdown] = useState(20);
 
   // Fetch all trips
   const {
@@ -502,6 +748,8 @@ const TripDashboard: React.FC = () => {
   } = useQuery<AllTripsResponse>({
     queryKey: ["all-trips"],
     queryFn: () => get(API_ENDPOINTS.ALL_TRIPS),
+    refetchInterval: 20000, // Auto-refresh every 20 seconds
+    refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
   });
 
   // Fetch selected trip details
@@ -509,6 +757,8 @@ const TripDashboard: React.FC = () => {
     queryKey: ["trip-detail", selectedTripId],
     queryFn: () => get(API_ENDPOINTS.TRIP_DETAIL(selectedTripId!)),
     enabled: !!selectedTripId,
+    refetchInterval: 20000, // Auto-refresh every 20 seconds
+    refetchIntervalInBackground: true, // Continue refreshing even when tab is not active
   });
 
   // Force end trip mutation
@@ -551,15 +801,18 @@ const TripDashboard: React.FC = () => {
   };
 
   // Handle marker click
-  const handleMarkerClick = (tripId: number) => {
-    if (selectedTripId === tripId) {
-      // If clicking on the already selected trip marker, deselect it
-      setSelectedTripId(null);
-    } else {
-      // Select the new trip
-      setSelectedTripId(tripId);
-    }
-  };
+  const handleMarkerClick = useCallback(
+    (tripId: number) => {
+      if (selectedTripId === tripId) {
+        // If clicking on the already selected trip marker, deselect it
+        setSelectedTripId(null);
+      } else {
+        // Select the new trip
+        setSelectedTripId(tripId);
+      }
+    },
+    [selectedTripId]
+  );
 
   // Handle force end trip click
   const handleForceEndClick = (tripId: number) => {
@@ -677,10 +930,10 @@ const TripDashboard: React.FC = () => {
         if (!doc.lot) {
           totalDeliveries++;
           switch (doc.status) {
-            case "DELIVERED":
+            case DocStatus.DELIVERED:
               completedDeliveries++;
               break;
-            case "UNDELIVERED":
+            case DocStatus.UNDELIVERED:
               failedDeliveries++;
               break;
             default:
@@ -705,8 +958,15 @@ const TripDashboard: React.FC = () => {
       selectedTrip.status === TripStatus.ENDED
     ) {
       const tripStartTime = new Date(selectedTrip.startedAt);
-      const now = new Date();
-      const durationMs = now.getTime() - tripStartTime.getTime();
+
+      // For ended trips, use lastUpdatedAt as the end time
+      // For started trips, use current time (real-time duration)
+      const endTime =
+        selectedTrip.status === TripStatus.ENDED
+          ? new Date(selectedTrip.lastUpdatedAt)
+          : new Date();
+
+      const durationMs = endTime.getTime() - tripStartTime.getTime();
       const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
       const durationMinutes = Math.floor(
         (durationMs % (1000 * 60 * 60)) / (1000 * 60)
@@ -730,21 +990,46 @@ const TripDashboard: React.FC = () => {
     };
   };
 
-  // Generate map markers - show all drivers when no trip is selected (only for Ongoing tab)
+  // Initialize InfoWindow
+  useEffect(() => {
+    if (window.google) {
+      infoWindowRef.current = new window.google.maps.InfoWindow();
+    }
+
+    return () => {
+      if (infoWindowRef.current) {
+        infoWindowRef.current.close();
+      }
+    };
+  }, []);
+
+  // Countdown timer for refresh button
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshCountdown((prev) => {
+        if (prev <= 1) {
+          return 20; // Reset to 20 seconds
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Generate map markers - show filtered drivers when no trip is selected
   useEffect(() => {
     if (!allTripsData?.trips) return;
 
-    // Only show all drivers when no trip is selected AND on Ongoing tab (activeTab === 0)
+    // Only show all drivers when no trip is selected
     if (selectedTripId) return;
-    if (activeTab !== 0) {
-      // For Scheduled and Ended tabs, clear map when no trip is selected
-      setMapMarkers([]);
-      return;
-    }
 
     const markers: MapMarker[] = [];
 
-    allTripsData.trips.forEach((trip) => {
+    // Filter trips based on active tab
+    const filteredTrips = getFilteredTrips();
+
+    filteredTrips.forEach((trip) => {
       // Add driver marker if coordinates are available
       if (trip.driverLastKnownLatitude && trip.driverLastKnownLongitude) {
         markers.push({
@@ -754,7 +1039,7 @@ const TripDashboard: React.FC = () => {
             lng: parseFloat(trip.driverLastKnownLongitude),
           },
           type: "driver",
-          title: `${trip.driverName} - ${trip.vehicleNumber}`,
+          title: `${trip.driverName} - ${trip.vehicleNumber} - ${trip.route}`,
           tripId: trip.tripId,
         });
       }
@@ -808,7 +1093,7 @@ const TripDashboard: React.FC = () => {
           lng: parseFloat(selectedTrip.driverLastKnownLongitude),
         },
         type: "driver",
-        title: `${selectedTrip.driverName} - ${selectedTrip.vehicleNumber}`,
+        title: `${selectedTrip.driverName} - ${selectedTrip.vehicleNumber} - ${selectedTrip.route}`,
         tripId: selectedTrip.tripId,
       });
     }
@@ -843,6 +1128,7 @@ const TripDashboard: React.FC = () => {
   const handleRefreshLocations = async () => {
     // Re-fetch all trips data to get latest driver locations
     await refetchTrips();
+    setRefreshCountdown(20); // Reset countdown when manually refreshed
   };
 
   return (
@@ -976,7 +1262,7 @@ const TripDashboard: React.FC = () => {
                 >
                   <Typography variant="body2">
                     👋 The map is now showing all driver locations. Click on a
-                    trip card to view that trip's details alone!
+                    trip card to view that trip's details alone.
                   </Typography>
                 </Box>
 
@@ -1005,27 +1291,38 @@ const TripDashboard: React.FC = () => {
         {/* Google Map */}
         <Box sx={{ flex: { xs: "1", md: "0 0 67%" } }}>
           <Paper sx={{ p: 2 }}>
+            {/* Map Heading */}
+            <Box sx={{ mb: 2 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontSize: { xs: "1rem", sm: "1.1rem", md: "1.25rem" },
+                }}
+              >
+                {selectedTripId && selectedTrip
+                  ? `Trip #${selectedTripId} - ${selectedTrip.route}`
+                  : selectedTripId
+                  ? `Trip #${selectedTripId}`
+                  : activeTab === 0
+                  ? "All Ongoing Trips - Driver Locations"
+                  : activeTab === 1
+                  ? "Select a Trip to View Details"
+                  : "Select a Trip to View Details"}
+              </Typography>
+            </Box>
+
+            {/* Action Buttons Row */}
             <Box
               sx={{
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
                 mb: 2,
-                gap: 1,
+                gap: 2,
               }}
             >
-              <Typography variant="h6">
-                {selectedTripId && selectedTrip
-                  ? `Trip #${selectedTripId} - ${selectedTrip.route}`
-                  : selectedTripId
-                  ? `Trip #${selectedTripId}`
-                  : activeTab === 0
-                  ? "Showing All Ongoing Trips - Driver Locations"
-                  : activeTab === 1
-                  ? "Showing All Scheduled Trips - Driver Locations"
-                  : "Showing All Ended Trips - Driver Locations"}
-              </Typography>
-              <Box sx={{ display: "flex", gap: 1 }}>
+              {/* Left side - Show All Trips button */}
+              <Box>
                 {selectedTripId && (
                   <Button
                     variant="contained"
@@ -1037,11 +1334,15 @@ const TripDashboard: React.FC = () => {
                       px: 2,
                     }}
                   >
-                    {activeTab === 0 && "Show All Ongoing Trips"}
-                    {activeTab === 1 && "Show All Scheduled Trips"}
-                    {activeTab === 2 && "Show All Ended Trips"}
+                    {activeTab === 0 && "Show All Trips"}
+                    {activeTab === 1 && "Show All Trips"}
+                    {activeTab === 2 && "Show All Trips"}
                   </Button>
                 )}
+              </Box>
+
+              {/* Right side - Refresh button */}
+              <Box>
                 <Button
                   variant="outlined"
                   size="small"
@@ -1053,7 +1354,11 @@ const TripDashboard: React.FC = () => {
                     px: 2,
                   }}
                 >
-                  {isFetchingTrips ? "Refreshing..." : "Refresh Locations"}
+                  {isFetchingTrips
+                    ? "Refreshing..."
+                    : `Refresh Data (${refreshCountdown
+                        .toString()
+                        .padStart(2, "0")})`}
                 </Button>
               </Box>
             </Box>
@@ -1061,6 +1366,8 @@ const TripDashboard: React.FC = () => {
               <GoogleMap
                 markers={mapMarkers}
                 onMarkerClick={handleMarkerClick}
+                onCustomerMarkerClick={showCustomerInfoWindow}
+                selectedTripId={selectedTripId}
                 height={isMobile ? "400px" : "600px"}
               />
 
@@ -1078,6 +1385,7 @@ const TripDashboard: React.FC = () => {
                     backgroundColor: "rgba(255, 255, 255, 0.95)",
                     backdropFilter: "blur(4px)",
                     fontSize: isMobile ? "0.75rem" : "0.875rem",
+                    display: { xs: "none", md: "block" },
                   }}
                 >
                   <Typography
@@ -1086,6 +1394,8 @@ const TripDashboard: React.FC = () => {
                   >
                     {selectedTrip?.status === TripStatus.SCHEDULED
                       ? "Trip Yet To Start"
+                      : selectedTrip?.status === TripStatus.STARTED
+                      ? "Trip In Progress"
                       : "Trip Summary"}
                   </Typography>
 
@@ -1251,8 +1561,8 @@ const TripDashboard: React.FC = () => {
             </Typography>
             <Typography variant="body2">
               All pending deliveries will be automatically marked as{" "}
-              <strong>UNDELIVERED</strong>. They can be boarded on the next trip
-              if needed.
+              <strong>FAILED DELIVERY</strong>. They can be boarded on the next
+              trip if needed.
             </Typography>
           </Alert>
           <Typography variant="body2" color="text.secondary">

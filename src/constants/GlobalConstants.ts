@@ -24,6 +24,8 @@ export const API_ENDPOINTS = {
   RESTORE_BACKUP: `${API_BASE_URL}/setting/restore`,
   DOWNLOAD_BACKUP: (filename: string) =>
     `${API_BASE_URL}/setting/backup/download/${filename}`,
+  DOC_DELIVERY_STATUS: (docId: string) =>
+    `${API_BASE_URL}/doc/delivery-status/${docId}`,
 } as const;
 
 // Setting Names
@@ -32,4 +34,5 @@ export const SETTING_NAMES = {
     "COOL_OFF_SECONDS_BTWN_DIFF_ROUTE_SCANS",
   MINS_BETWEEN_LOCATION_HEARTBEATS: "MINS_BETWEEN_LOCATION_HEARTBEATS",
   UPDATE_DOC_STATUS_TO_ERP: "UPDATE_DOC_STATUS_TO_ERP",
+  SEND_TRACKING_SMS: "SEND_TRACKING_SMS",
 } as const;
