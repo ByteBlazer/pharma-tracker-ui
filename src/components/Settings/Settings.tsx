@@ -40,11 +40,9 @@ import { useApiService } from "../../hooks/useApiService";
 import { Setting } from "../../types/Setting";
 import { API_ENDPOINTS, SETTING_NAMES } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
-import {
-  BackupListResponse,
-  BackupFile,
-  RestoreBackupRequest,
-} from "../../types/Backup";
+import { BackupListResponse } from "../../types/BackupListResponse";
+import { BackupFile } from "../../types/BackupFile";
+import { RestoreBackupRequest } from "../../types/RestoreBackupRequest";
 import { useContext } from "react";
 import { GlobalContext } from "../GlobalContextProvider";
 
