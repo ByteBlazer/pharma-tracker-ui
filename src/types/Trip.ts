@@ -7,6 +7,7 @@ export interface Trip {
   createdById: string;
   driverName: string;
   driverId: string;
+  driverPhoneNumber: string;
   vehicleNumber: string;
   status: TripStatus;
   route: string;
