@@ -329,7 +329,8 @@ const TripCard: React.FC<TripCardProps> = ({
                 sx={{ mr: 1, fontSize: 16, color: "text.secondary" }}
               />
               <Typography variant="body2" color="text.secondary">
-                {trip.vehicleNumber} - {trip.driverName}
+                {trip.vehicleNumber} - {trip.driverName} - Mob:{" "}
+                {trip.driverPhoneNumber}
               </Typography>
             </Box>
 
