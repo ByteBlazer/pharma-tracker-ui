@@ -732,6 +732,7 @@ const TripDashboard: React.FC = () => {
   const [docSearchError, setDocSearchError] = useState<string>("");
   const [docSearchSuccessMessage, setDocSearchSuccessMessage] =
     useState<string>("");
+  const tripCardsScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch all trips
   const {
@@ -817,6 +818,12 @@ const TripDashboard: React.FC = () => {
         }
 
         // Switch tab and select trip
+        console.log(
+          "🔍 Doc search selecting trip:",
+          data.tripId,
+          "on tab:",
+          targetTab
+        );
         setActiveTab(targetTab);
         setSelectedTripId(data.tripId);
         setDocSearchDialogOpen(false);
@@ -835,11 +842,20 @@ const TripDashboard: React.FC = () => {
 
   // Handle trip selection/deselection
   const handleTripSelect = (tripId: number) => {
+    console.log(
+      "🖱️ Trip clicked:",
+      tripId,
+      "current selectedTripId:",
+      selectedTripId
+    );
+
     if (selectedTripId === tripId) {
       // If clicking on the already selected trip, deselect it
+      console.log("🔄 Deselecting trip");
       setSelectedTripId(null);
     } else {
       // Select the new trip
+      console.log("✅ Selecting new trip:", tripId);
       setSelectedTripId(tripId);
     }
   };
@@ -1167,6 +1183,92 @@ const TripDashboard: React.FC = () => {
     setMapMarkers([...selectedTripDriverMarker, ...customerMarkers]);
   }, [selectedTripId, selectedTrip]);
 
+  // Scroll selected trip card to top when selectedTripId changes
+  // Use setTimeout to ensure scroll happens after re-render
+  useEffect(() => {
+    console.log("🔄 Scroll effect triggered, selectedTripId:", selectedTripId);
+
+    if (selectedTripId) {
+      console.log("✅ selectedTripId exists, waiting for DOM update...");
+
+      // Use a longer timeout to ensure the DOM has been fully updated after re-render
+      const timeoutId = setTimeout(() => {
+        console.log(
+          "⏰ setTimeout executing, looking for trip:",
+          selectedTripId
+        );
+        console.log("🔍 Scroll container:", tripCardsScrollRef.current);
+
+        // Check if ref is available now
+        if (!tripCardsScrollRef.current) {
+          console.log("❌ Scroll ref still not available, trying again...");
+          // Try again with another timeout
+          const retryTimeoutId = setTimeout(() => {
+            console.log(
+              "🔄 Retry attempt, scroll container:",
+              tripCardsScrollRef.current
+            );
+            if (tripCardsScrollRef.current) {
+              const selectedCardElement =
+                tripCardsScrollRef.current.querySelector(
+                  `[data-trip-id="${selectedTripId}"]`
+                );
+              console.log(
+                "🎯 Found card element (retry):",
+                selectedCardElement
+              );
+
+              if (selectedCardElement) {
+                console.log("📜 Scrolling card into view (retry)");
+                selectedCardElement.scrollIntoView({
+                  behavior: "smooth",
+                  block: "start",
+                  inline: "nearest",
+                });
+              }
+            }
+          }, 100);
+          return () => clearTimeout(retryTimeoutId);
+        }
+
+        const selectedCardElement = tripCardsScrollRef.current?.querySelector(
+          `[data-trip-id="${selectedTripId}"]`
+        );
+
+        console.log("🎯 Found card element:", selectedCardElement);
+
+        if (selectedCardElement) {
+          console.log("📜 Scrolling card into view");
+          selectedCardElement.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+            inline: "nearest",
+          });
+        } else {
+          console.log("❌ Card element not found!");
+          // Debug: log all available trip cards
+          const allCards =
+            tripCardsScrollRef.current?.querySelectorAll("[data-trip-id]");
+          console.log("📋 All available trip cards:", allCards);
+          if (allCards) {
+            allCards.forEach((card, index) => {
+              console.log(`Card ${index}:`, card.getAttribute("data-trip-id"));
+            });
+          }
+        }
+      }, 50); // Increased timeout to 50ms to ensure DOM is ready
+
+      return () => clearTimeout(timeoutId);
+    } else {
+      console.log(
+        "❌ Conditions not met - selectedTripId:",
+        selectedTripId,
+        "scrollRef:",
+        tripCardsScrollRef.current
+      );
+    }
+  }, [selectedTripId]);
+
   const isLoading = tripsLoading || tripDetailLoading;
   const isError = tripsError;
   const error = tripsErrorMsg;
@@ -1267,6 +1369,7 @@ const TripDashboard: React.FC = () => {
             </Tabs>
 
             <Box
+              ref={tripCardsScrollRef}
               sx={{
                 maxHeight: isMobile ? "300px" : "600px",
                 overflow: "auto",
@@ -1284,6 +1387,7 @@ const TripDashboard: React.FC = () => {
                 getFilteredTrips().map((trip, index) => (
                   <Box
                     key={trip.tripId}
+                    data-trip-id={trip.tripId}
                     sx={{ mb: 2 }}
                     ref={index === 0 ? firstCardRef : null}
                   >
@@ -1745,7 +1849,7 @@ const TripDashboard: React.FC = () => {
             onChange={(e) => setDocSearchValue(e.target.value)}
             placeholder="Enter document ID to search"
             variant="outlined"
-            sx={{ mb: 2 }}
+            sx={{ mb: 2, mt: 2 }}
             onKeyPress={(e) => {
               if (e.key === "Enter") {
                 handleDocSearch();
