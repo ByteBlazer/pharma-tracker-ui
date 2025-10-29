@@ -825,7 +825,7 @@ const TripDashboard: React.FC = () => {
 
         // Show success message
         setDocSearchSuccessMessage(
-          `Document found in Trip #${data.tripId} and trip has been selected.`
+          `Doc found in Trip #${data.tripId}. Trip selected.`
         );
       }
     },
