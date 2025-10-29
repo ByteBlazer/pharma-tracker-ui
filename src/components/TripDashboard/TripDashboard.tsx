@@ -818,12 +818,6 @@ const TripDashboard: React.FC = () => {
         }
 
         // Switch tab and select trip
-        console.log(
-          "🔍 Doc search selecting trip:",
-          data.tripId,
-          "on tab:",
-          targetTab
-        );
         setActiveTab(targetTab);
         setSelectedTripId(data.tripId);
         setDocSearchDialogOpen(false);
@@ -842,20 +836,11 @@ const TripDashboard: React.FC = () => {
 
   // Handle trip selection/deselection
   const handleTripSelect = (tripId: number) => {
-    console.log(
-      "🖱️ Trip clicked:",
-      tripId,
-      "current selectedTripId:",
-      selectedTripId
-    );
-
     if (selectedTripId === tripId) {
       // If clicking on the already selected trip, deselect it
-      console.log("🔄 Deselecting trip");
       setSelectedTripId(null);
     } else {
       // Select the new trip
-      console.log("✅ Selecting new trip:", tripId);
       setSelectedTripId(tripId);
     }
   };
@@ -1186,44 +1171,26 @@ const TripDashboard: React.FC = () => {
   // Scroll selected trip card to top when selectedTripId changes
   // Use setTimeout to ensure scroll happens after re-render
   useEffect(() => {
-    console.log("🔄 Scroll effect triggered, selectedTripId:", selectedTripId);
-
     if (selectedTripId) {
-      console.log("✅ selectedTripId exists, waiting for DOM update...");
-
       // Use a longer timeout to ensure the DOM has been fully updated after re-render
       const timeoutId = setTimeout(() => {
-        console.log(
-          "⏰ setTimeout executing, looking for trip:",
-          selectedTripId
-        );
-        console.log("🔍 Scroll container:", tripCardsScrollRef.current);
-
         // Check if ref is available now
         if (!tripCardsScrollRef.current) {
-          console.log("❌ Scroll ref still not available, trying again...");
           // Try again with another timeout
           const retryTimeoutId = setTimeout(() => {
-            console.log(
-              "🔄 Retry attempt, scroll container:",
-              tripCardsScrollRef.current
-            );
             if (tripCardsScrollRef.current) {
               const selectedCardElement =
                 tripCardsScrollRef.current.querySelector(
                   `[data-trip-id="${selectedTripId}"]`
-                );
-              console.log(
-                "🎯 Found card element (retry):",
-                selectedCardElement
-              );
+                ) as HTMLElement;
 
               if (selectedCardElement) {
-                console.log("📜 Scrolling card into view (retry)");
-                selectedCardElement.scrollIntoView({
+                // Scroll within the container only, not the entire page
+                const container = tripCardsScrollRef.current;
+                const cardTop = selectedCardElement.offsetTop;
+                container.scrollTo({
+                  top: cardTop,
                   behavior: "smooth",
-                  block: "start",
-                  inline: "nearest",
                 });
               }
             }
@@ -1233,39 +1200,20 @@ const TripDashboard: React.FC = () => {
 
         const selectedCardElement = tripCardsScrollRef.current?.querySelector(
           `[data-trip-id="${selectedTripId}"]`
-        );
-
-        console.log("🎯 Found card element:", selectedCardElement);
+        ) as HTMLElement;
 
         if (selectedCardElement) {
-          console.log("📜 Scrolling card into view");
-          selectedCardElement.scrollIntoView({
+          // Scroll within the container only, not the entire page
+          const container = tripCardsScrollRef.current;
+          const cardTop = selectedCardElement.offsetTop;
+          container.scrollTo({
+            top: cardTop,
             behavior: "smooth",
-            block: "start",
-            inline: "nearest",
           });
-        } else {
-          console.log("❌ Card element not found!");
-          // Debug: log all available trip cards
-          const allCards =
-            tripCardsScrollRef.current?.querySelectorAll("[data-trip-id]");
-          console.log("📋 All available trip cards:", allCards);
-          if (allCards) {
-            allCards.forEach((card, index) => {
-              console.log(`Card ${index}:`, card.getAttribute("data-trip-id"));
-            });
-          }
         }
       }, 50); // Increased timeout to 50ms to ensure DOM is ready
 
       return () => clearTimeout(timeoutId);
-    } else {
-      console.log(
-        "❌ Conditions not met - selectedTripId:",
-        selectedTripId,
-        "scrollRef:",
-        tripCardsScrollRef.current
-      );
     }
   }, [selectedTripId]);
 
@@ -1433,7 +1381,9 @@ const TripDashboard: React.FC = () => {
                       fontWeight: "bold",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
                       border: "2px solid #4caf50",
-                      whiteSpace: "nowrap",
+                      whiteSpace: "normal",
+                      wordWrap: "break-word",
+                      maxWidth: "400px",
                     }}
                   >
                     {docSearchSuccessMessage}
@@ -1823,7 +1773,12 @@ const TripDashboard: React.FC = () => {
         <Alert
           onClose={handleSuccessSnackbarClose}
           severity="success"
-          sx={{ width: "100%" }}
+          sx={{
+            width: "100%",
+            whiteSpace: "normal",
+            wordWrap: "break-word",
+            maxWidth: "500px",
+          }}
         >
           {successMessage}
         </Alert>
