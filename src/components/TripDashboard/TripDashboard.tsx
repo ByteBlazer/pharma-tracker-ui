@@ -1359,6 +1359,8 @@ const TripDashboard: React.FC = () => {
                   left: "50%",
                   transform: "translate(-50%, -50%)",
                   zIndex: 1500,
+                  width: "auto",
+                  maxWidth: "90vw",
                 }}
               >
                 <Snackbar
@@ -1376,14 +1378,13 @@ const TripDashboard: React.FC = () => {
                     onClose={handleDocSearchSuccessClose}
                     severity="success"
                     sx={{
-                      width: "100%",
-                      fontSize: "1.1rem",
+                      width: { xs: "300px", sm: "400px" },
+                      fontSize: { xs: "0.9rem", sm: "1.1rem" },
                       fontWeight: "bold",
                       boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
                       border: "2px solid #4caf50",
                       whiteSpace: "normal",
                       wordWrap: "break-word",
-                      maxWidth: "400px",
                     }}
                   >
                     {docSearchSuccessMessage}
