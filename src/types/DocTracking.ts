@@ -1,6 +1,12 @@
 export interface DocTrackingResponse {
   success: boolean;
   message: string;
+  docId: string;
+  docAmount?: string;
+  customerFirmName?: string;
+  customerAddress?: string;
+  customerCity?: string;
+  customerPincode?: string;
   status?: string;
   comment?: string;
   deliveryTimestamp?: string;
