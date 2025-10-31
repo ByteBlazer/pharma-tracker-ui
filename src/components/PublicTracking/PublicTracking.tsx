@@ -349,7 +349,7 @@ const PublicTracking: React.FC = () => {
         {trackingData.docId && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              <strong>Doc ID:</strong> {trackingData.docId}
+              <strong>Invoice:</strong> {trackingData.docId}
               {trackingData.docAmount !== undefined &&
                 trackingData.docAmount !== null &&
                 String(trackingData.docAmount).trim() !== "" && (
@@ -427,9 +427,13 @@ const PublicTracking: React.FC = () => {
         )}
 
         {trackingData.driverLastKnownLocation?.receivedAt && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Driver location updated:</strong>{" "}
+          <Box sx={{ mt: 0.5 }}>
+            <Typography
+              variant="caption"
+              color="text.disabled"
+              sx={{ fontStyle: "italic" }}
+            >
+              Driver location updated:{" "}
               {(() => {
                 const updateTime = new Date(
                   trackingData.driverLastKnownLocation.receivedAt
