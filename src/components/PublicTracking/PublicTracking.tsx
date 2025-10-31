@@ -292,6 +292,25 @@ const PublicTracking: React.FC = () => {
   }
 
   const statusDisplay = getStatusDisplay(trackingData.status);
+  // Format INR amount with rupee symbol (supports string or number)
+  const formatINR = (amount: string | number) => {
+    if (typeof amount === "number") {
+      return `₹${amount.toLocaleString("en-IN")}`;
+    }
+    // Try to parse numeric string; fall back to raw string if NaN
+    const num = Number(amount);
+    return isNaN(num) ? `₹${amount}` : `₹${num.toLocaleString("en-IN")}`;
+  };
+  // Customer details (new fields) – concatenate safely
+  const deliveringTo: string | undefined =
+    [
+      (trackingData as any)?.customerFirmName,
+      (trackingData as any)?.customerAddress,
+      (trackingData as any)?.customerCity,
+      (trackingData as any)?.customerPincode,
+    ]
+      .filter((v) => typeof v === "string" && v.trim().length > 0)
+      .join(" ") || undefined;
   const hasMap =
     trackingData.customerLocation || trackingData.driverLastKnownLocation;
 
@@ -325,6 +344,32 @@ const PublicTracking: React.FC = () => {
             size="medium"
           />
         </Box>
+
+        {/* Doc ID and Amount (from API response) */}
+        {trackingData.docId && (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Invoice:</strong> {trackingData.docId}
+              {trackingData.docAmount !== undefined &&
+                trackingData.docAmount !== null &&
+                String(trackingData.docAmount).trim() !== "" && (
+                  <>
+                    {" "}
+                    — <strong>{formatINR(trackingData.docAmount)}</strong>
+                  </>
+                )}
+            </Typography>
+          </Box>
+        )}
+
+        {/* Delivering To */}
+        {deliveringTo && (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Delivering To:</strong> {deliveringTo}
+            </Typography>
+          </Box>
+        )}
 
         {/* Additional Information */}
         {trackingData.comment &&
@@ -382,9 +427,13 @@ const PublicTracking: React.FC = () => {
         )}
 
         {trackingData.driverLastKnownLocation?.receivedAt && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              <strong>Driver location updated:</strong>{" "}
+          <Box sx={{ mt: 0.5 }}>
+            <Typography
+              variant="caption"
+              color="text.disabled"
+              sx={{ fontStyle: "italic" }}
+            >
+              Driver location updated:{" "}
               {(() => {
                 const updateTime = new Date(
                   trackingData.driverLastKnownLocation.receivedAt
