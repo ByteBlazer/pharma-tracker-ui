@@ -20,15 +20,14 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
+  TextField,
 } from "@mui/material";
 import {
   DirectionsCar,
-  Person,
   Schedule,
   CheckCircle,
   Cancel,
   Warning,
-  ConfirmationNumber,
   Refresh,
   StopCircle,
   Map,
@@ -40,6 +39,7 @@ import { TripStatus } from "../../types/TripStatus";
 import { MapMarker } from "../../types/MapMarker";
 import { DocStatus } from "../../types/DocStatus";
 import { DeliveryStatusResponse } from "../../types/DeliveryStatus";
+import { DocSearchResponse } from "../../types/DocSearchResponse";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import ModalInfiniteSpinner from "../ModalInfiniteSpinner/ModalInfiniteSpinner";
 
@@ -286,7 +286,7 @@ const TripCard: React.FC<TripCardProps> = ({
               fontSize: { xs: "1rem", sm: "1.1rem", md: "1.25rem" },
             }}
           >
-            {trip.route}
+            Trip #{trip.tripId} {trip.route}
           </Typography>
         </Box>
 
@@ -325,27 +325,12 @@ const TripCard: React.FC<TripCardProps> = ({
         {isExpanded && (
           <>
             <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-              <Person sx={{ mr: 1, fontSize: 16, color: "text.secondary" }} />
-              <Typography variant="body2" color="text.secondary">
-                {trip.driverName}
-              </Typography>
-            </Box>
-
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
               <DirectionsCar
                 sx={{ mr: 1, fontSize: 16, color: "text.secondary" }}
               />
               <Typography variant="body2" color="text.secondary">
-                {trip.vehicleNumber}
-              </Typography>
-            </Box>
-
-            <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-              <ConfirmationNumber
-                sx={{ mr: 1, fontSize: 16, color: "text.secondary" }}
-              />
-              <Typography variant="body2" color="text.secondary">
-                Trip #{trip.tripId}
+                {trip.vehicleNumber} - {trip.driverName} - Mob:{" "}
+                {trip.driverPhoneNumber}
               </Typography>
             </Box>
 
@@ -369,18 +354,19 @@ const TripCard: React.FC<TripCardProps> = ({
                   createdDate.getMonth() === yesterday.getMonth() &&
                   createdDate.getFullYear() === yesterday.getFullYear();
 
+                let timeString;
                 if (isToday) {
-                  return `Today ${createdDate.toLocaleTimeString([], {
+                  timeString = `Today ${createdDate.toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}`;
                 } else if (isYesterday) {
-                  return `Yesterday ${createdDate.toLocaleTimeString([], {
+                  timeString = `Yesterday ${createdDate.toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}`;
                 } else {
-                  return `${createdDate.toLocaleDateString([], {
+                  timeString = `${createdDate.toLocaleDateString([], {
                     month: "short",
                     day: "numeric",
                   })} ${createdDate.toLocaleTimeString([], {
@@ -388,6 +374,8 @@ const TripCard: React.FC<TripCardProps> = ({
                     minute: "2-digit",
                   })}`;
                 }
+
+                return `${timeString} by ${trip.createdBy}`;
               })()}
             </Typography>
             {/* Only show Started timestamp for non-scheduled trips */}
@@ -559,6 +547,9 @@ const TripDashboard: React.FC = () => {
         <h4 style="margin: 0 0 8px 0; color: #333;">${
           markerData.customerInfo.firmName
         }</h4>
+        <p style="margin: 4px 0; color: #666; font-size: 14px;">
+          <strong>Doc ID:</strong> ${docId}
+        </p>
         <p style="margin: 4px 0; color: #666; font-size: 14px;">
           <strong>Address:</strong> ${markerData.customerInfo.address}, ${
         markerData.customerInfo.city
@@ -736,6 +727,12 @@ const TripDashboard: React.FC = () => {
   const [tripToForceEnd, setTripToForceEnd] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [refreshCountdown, setRefreshCountdown] = useState(20);
+  const [docSearchDialogOpen, setDocSearchDialogOpen] = useState(false);
+  const [docSearchValue, setDocSearchValue] = useState("");
+  const [docSearchError, setDocSearchError] = useState<string>("");
+  const [docSearchSuccessMessage, setDocSearchSuccessMessage] =
+    useState<string>("");
+  const tripCardsScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch all trips
   const {
@@ -789,6 +786,54 @@ const TripDashboard: React.FC = () => {
     },
   });
 
+  // Doc search mutation
+  const docSearchMutation = useMutation({
+    mutationFn: (docId: string) =>
+      get<DocSearchResponse>(API_ENDPOINTS.DOC_SEARCH(docId)),
+    onSuccess: (data) => {
+      setDocSearchError("");
+
+      if (data.docStatus === DocStatus.READY_FOR_DISPATCH) {
+        setDocSearchError(
+          "Document was scanned but not scheduled on a trip yet."
+        );
+        return;
+      }
+
+      if (data.docStatus === DocStatus.AT_TRANSIT_HUB) {
+        setDocSearchError(
+          "Document is at a transit hub and not scheduled on the next trip yet."
+        );
+        return;
+      }
+
+      // If we have tripId and tripStatus, switch to appropriate tab and select trip
+      if (data.tripId && data.tripStatus) {
+        // Determine which tab to switch to based on trip status
+        let targetTab = 0; // Default to Ongoing
+        if (data.tripStatus === TripStatus.SCHEDULED) {
+          targetTab = 1; // Scheduled tab
+        } else if (data.tripStatus === TripStatus.ENDED) {
+          targetTab = 2; // Ended tab
+        }
+
+        // Switch tab and select trip
+        setActiveTab(targetTab);
+        setSelectedTripId(data.tripId);
+        setDocSearchDialogOpen(false);
+        setDocSearchValue("");
+
+        // Show success message
+        setDocSearchSuccessMessage(
+          `Doc found in Trip #${data.tripId}. Trip selected.`
+        );
+      }
+    },
+    onError: (error: any) => {
+      setDocSearchError("Doc ID not found.");
+    },
+  });
+
   // Handle trip selection/deselection
   const handleTripSelect = (tripId: number) => {
     if (selectedTripId === tripId) {
@@ -836,6 +881,28 @@ const TripDashboard: React.FC = () => {
   // Handle success snackbar close
   const handleSuccessSnackbarClose = () => {
     setSuccessMessage("");
+  };
+
+  // Handle doc search
+  const handleDocSearch = () => {
+    if (!docSearchValue.trim()) {
+      setDocSearchError("Please enter a document ID.");
+      return;
+    }
+    setDocSearchError("");
+    docSearchMutation.mutate(docSearchValue.trim());
+  };
+
+  // Handle doc search dialog close
+  const handleDocSearchDialogClose = () => {
+    setDocSearchDialogOpen(false);
+    setDocSearchValue("");
+    setDocSearchError("");
+  };
+
+  // Handle doc search success message close
+  const handleDocSearchSuccessClose = () => {
+    setDocSearchSuccessMessage("");
   };
 
   // Show guidance when trips are loaded (only for Ongoing tab with trips, and only once per session)
@@ -1101,6 +1168,55 @@ const TripDashboard: React.FC = () => {
     setMapMarkers([...selectedTripDriverMarker, ...customerMarkers]);
   }, [selectedTripId, selectedTrip]);
 
+  // Scroll selected trip card to top when selectedTripId changes
+  // Use setTimeout to ensure scroll happens after re-render
+  useEffect(() => {
+    if (selectedTripId) {
+      // Use a longer timeout to ensure the DOM has been fully updated after re-render
+      const timeoutId = setTimeout(() => {
+        // Check if ref is available now
+        if (!tripCardsScrollRef.current) {
+          // Try again with another timeout
+          const retryTimeoutId = setTimeout(() => {
+            if (tripCardsScrollRef.current) {
+              const selectedCardElement =
+                tripCardsScrollRef.current.querySelector(
+                  `[data-trip-id="${selectedTripId}"]`
+                ) as HTMLElement;
+
+              if (selectedCardElement) {
+                // Scroll within the container only, not the entire page
+                const container = tripCardsScrollRef.current;
+                const cardTop = selectedCardElement.offsetTop;
+                container.scrollTo({
+                  top: cardTop,
+                  behavior: "smooth",
+                });
+              }
+            }
+          }, 100);
+          return () => clearTimeout(retryTimeoutId);
+        }
+
+        const selectedCardElement = tripCardsScrollRef.current?.querySelector(
+          `[data-trip-id="${selectedTripId}"]`
+        ) as HTMLElement;
+
+        if (selectedCardElement) {
+          // Scroll within the container only, not the entire page
+          const container = tripCardsScrollRef.current;
+          const cardTop = selectedCardElement.offsetTop;
+          container.scrollTo({
+            top: cardTop,
+            behavior: "smooth",
+          });
+        }
+      }, 50); // Increased timeout to 50ms to ensure DOM is ready
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [selectedTripId]);
+
   const isLoading = tripsLoading || tripDetailLoading;
   const isError = tripsError;
   const error = tripsErrorMsg;
@@ -1163,6 +1279,20 @@ const TripDashboard: React.FC = () => {
                 {activeTab === 2 &&
                   `Ended Trips (${getFilteredTrips().length})`}
               </Typography>
+              <Typography
+                variant="body2"
+                color="primary"
+                sx={{
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  "&:hover": {
+                    color: "primary.dark",
+                  },
+                }}
+                onClick={() => setDocSearchDialogOpen(true)}
+              >
+                Find By Doc ID
+              </Typography>
             </Box>
 
             {/* Trip Status Tabs */}
@@ -1187,6 +1317,7 @@ const TripDashboard: React.FC = () => {
             </Tabs>
 
             <Box
+              ref={tripCardsScrollRef}
               sx={{
                 maxHeight: isMobile ? "300px" : "600px",
                 overflow: "auto",
@@ -1204,6 +1335,7 @@ const TripDashboard: React.FC = () => {
                 getFilteredTrips().map((trip, index) => (
                   <Box
                     key={trip.tripId}
+                    data-trip-id={trip.tripId}
                     sx={{ mb: 2 }}
                     ref={index === 0 ? firstCardRef : null}
                   >
@@ -1217,6 +1349,49 @@ const TripDashboard: React.FC = () => {
                 ))
               )}
             </Box>
+
+            {/* Doc Search Success Snackbar - Positioned below trip cards */}
+            {docSearchSuccessMessage && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 1500,
+                  width: "auto",
+                  maxWidth: "90vw",
+                }}
+              >
+                <Snackbar
+                  open={!!docSearchSuccessMessage}
+                  autoHideDuration={6000}
+                  onClose={handleDocSearchSuccessClose}
+                  anchorOrigin={{ vertical: "top", horizontal: "center" }}
+                  sx={{
+                    position: "static",
+                    transform: "none",
+                    zIndex: 1400,
+                  }}
+                >
+                  <Alert
+                    onClose={handleDocSearchSuccessClose}
+                    severity="success"
+                    sx={{
+                      width: { xs: "300px", sm: "400px" },
+                      fontSize: { xs: "0.9rem", sm: "1.1rem" },
+                      fontWeight: "bold",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                      border: "2px solid #4caf50",
+                      whiteSpace: "normal",
+                      wordWrap: "break-word",
+                    }}
+                  >
+                    {docSearchSuccessMessage}
+                  </Alert>
+                </Snackbar>
+              </Box>
+            )}
 
             {/* Guidance Speech Balloon */}
             <Popover
@@ -1599,16 +1774,81 @@ const TripDashboard: React.FC = () => {
         <Alert
           onClose={handleSuccessSnackbarClose}
           severity="success"
-          sx={{ width: "100%" }}
+          sx={{
+            width: "100%",
+            whiteSpace: "normal",
+            wordWrap: "break-word",
+            maxWidth: "500px",
+          }}
         >
           {successMessage}
         </Alert>
       </Snackbar>
 
+      {/* Doc Search Dialog */}
+      <Dialog
+        open={docSearchDialogOpen}
+        onClose={handleDocSearchDialogClose}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="h6">Find By Doc ID</Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <TextField
+            fullWidth
+            label="Document ID"
+            value={docSearchValue}
+            onChange={(e) => setDocSearchValue(e.target.value)}
+            placeholder="Enter document ID to search"
+            variant="outlined"
+            sx={{ mb: 2, mt: 2 }}
+            onKeyPress={(e) => {
+              if (e.key === "Enter") {
+                handleDocSearch();
+              }
+            }}
+          />
+          {docSearchError && (
+            <Alert
+              severity={docSearchError.includes("not found") ? "error" : "info"}
+              sx={{ mb: 2 }}
+            >
+              {docSearchError}
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={handleDocSearchDialogClose}
+            disabled={docSearchMutation.isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleDocSearch}
+            disabled={docSearchMutation.isPending}
+          >
+            {docSearchMutation.isPending ? "Searching..." : "Find"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Loading Spinner for Force End Trip */}
       <ModalInfiniteSpinner
         condition={forceEndTripMutation.isPending}
         title="Force ending trip... Please wait."
+      />
+
+      {/* Loading Spinner for Doc Search */}
+      <ModalInfiniteSpinner
+        condition={docSearchMutation.isPending}
+        title="Searching document... Please wait."
       />
     </Box>
   );

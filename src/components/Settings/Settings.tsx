@@ -923,9 +923,6 @@ const Settings: React.FC = () => {
         <DialogContent sx={{ mt: 2 }}>
           {selectedBackup && (
             <Box>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                You are about to restore the database from:
-              </Typography>
               <Alert severity="info" sx={{ mb: 2 }}>
                 <Typography variant="body2" fontWeight="bold">
                   {selectedBackup.filename}
@@ -934,20 +931,17 @@ const Settings: React.FC = () => {
                   Environment:{" "}
                   {parseBackupFilename(
                     selectedBackup.filename
-                  ).environment.toUpperCase()}
+                  ).environment.toUpperCase()}{" "}
+                  ({parseBackupFilename(selectedBackup.filename).type})
                 </Typography>
-                <Typography variant="caption" display="block">
-                  Type: {parseBackupFilename(selectedBackup.filename).type}
-                </Typography>
-                <Typography variant="caption" display="block">
-                  Created: {formatDate(selectedBackup.lastModified)}
-                </Typography>
+
                 <Typography variant="caption">
-                  Size: {formatFileSize(selectedBackup.size)}
+                  Size: {formatFileSize(selectedBackup.size)} (
+                  {formatDate(selectedBackup.lastModified)})
                 </Typography>
               </Alert>
 
-              <Alert severity="error" sx={{ mb: 3 }}>
+              <Alert severity="error" sx={{ mb: 1 }}>
                 <Typography variant="body2" fontWeight="bold" gutterBottom>
                   This will:
                 </Typography>
@@ -957,7 +951,6 @@ const Settings: React.FC = () => {
                 <Typography variant="body2">
                   ✅ REPLACE with data from the selected backup
                 </Typography>
-                <Typography variant="body2">⚠️ LOG OUT all users</Typography>
               </Alert>
 
               <FormControlLabel

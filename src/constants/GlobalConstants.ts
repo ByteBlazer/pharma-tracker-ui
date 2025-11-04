@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
     `${API_BASE_URL}/setting/backup/download/${filename}`,
   DOC_DELIVERY_STATUS: (docId: string) =>
     `${API_BASE_URL}/doc/delivery-status/${docId}`,
+  DOC_SEARCH: (docId: string) => `${API_BASE_URL}/trip/doc-search/${docId}`,
 } as const;
 
 // Setting Names
