@@ -30,7 +30,7 @@ import {
   Warning,
   Refresh,
   StopCircle,
-  Map,
+  Map as MapIcon,
 } from "@mui/icons-material";
 import { useApiService } from "../../hooks/useApiService";
 import { Trip } from "../../types/Trip";
@@ -208,6 +208,24 @@ const generateTrackingUrl = (docId: string): string => {
   const token = btoa(docId); // Base64 encode the docId
   const baseUrl = window.location.origin;
   return `${baseUrl}/track?t=${token}`;
+};
+
+const sanitizeDomId = (value: string): string =>
+  value.replace(/[^a-zA-Z0-9_-]/g, "_");
+
+const getDocStatusColor = (status?: DocStatus | string): string => {
+  switch (status) {
+    case DocStatus.DELIVERED:
+      return "#4caf50";
+    case DocStatus.UNDELIVERED:
+      return "#f44336";
+    case DocStatus.ON_TRIP:
+      return "#2196f3";
+    case DocStatus.AT_TRANSIT_HUB:
+      return "#ff9800";
+    default:
+      return "#666";
+  }
 };
 
 // Trip card component
@@ -538,183 +556,364 @@ const TripDashboard: React.FC = () => {
     async (marker: any, markerData: MapMarker) => {
       if (!infoWindowRef.current || !markerData.customerInfo) return;
 
-      const docId = markerData.id.replace("customer-", "");
-      const trackingUrl = generateTrackingUrl(docId);
+      const docsSource =
+        markerData.customerDocs && markerData.customerDocs.length > 0
+          ? markerData.customerDocs
+          : [];
 
-      // Show basic info first
-      let content = `
-      <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 300px;">
-        <h4 style="margin: 0 0 8px 0; color: #333;">${
-          markerData.customerInfo.firmName
-        }</h4>
-        <p style="margin: 4px 0; color: #666; font-size: 14px;">
-          <strong>Doc ID:</strong> ${docId}
-        </p>
-        <p style="margin: 4px 0; color: #666; font-size: 14px;">
-          <strong>Address:</strong> ${markerData.customerInfo.address}, ${
-        markerData.customerInfo.city
-      }
-        </p>
-        <p style="margin: 4px 0; color: #666; font-size: 14px;">
-          <strong>Phone:</strong> ${markerData.customerInfo.phone}
-        </p>
-        <p style="margin: 4px 0; color: #333; font-size: 14px;">
-          <strong>Status:</strong> 
-          <span style="color: ${getStatusColor(
-            markerData.status
-          )}; font-weight: bold;">
-            ${
-              markerData.status === DocStatus.UNDELIVERED
-                ? "DELIVERY FAILED"
-                : markerData.status || "Unknown"
-            }
-          </span>
-        </p>
-    `;
-
-      // If status is DELIVERED or UNDELIVERED, fetch delivery status
-      if (
-        markerData.status === DocStatus.DELIVERED ||
-        markerData.status === DocStatus.UNDELIVERED
-      ) {
-        try {
-          const deliveryStatus = await get<DeliveryStatusResponse>(
-            API_ENDPOINTS.DOC_DELIVERY_STATUS(docId)
-          );
-
-          if (deliveryStatus.success) {
-            // Add signature if available
-            if (deliveryStatus.signature) {
-              content += `
-              <div style="margin: 12px 0;">
-                <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
-                  Signature:
-                </p>
-                <img src="data:image/png;base64,${deliveryStatus.signature}" 
-                     style="max-width: 100px; max-height: 60px; border: 1px solid #ddd; border-radius: 4px;"
-                     alt="Delivery Signature" />
-              </div>
-            `;
-            }
-
-            // Add comments if available
-            if (deliveryStatus.comment) {
-              content += `
-              <div style="margin: 12px 0;">
-                <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
-                  Comments:
-                </p>
-                <p style="margin: 4px 0; color: #333; font-size: 12px; background: #f5f5f5; padding: 8px; border-radius: 4px;">
-                  ${deliveryStatus.comment}
-                </p>
-              </div>
-            `;
-            }
-
-            // Add delivery timestamp if available
-            if (deliveryStatus.deliveredAt) {
-              const deliveredDate = new Date(deliveryStatus.deliveredAt);
-              const today = new Date();
-
-              const isToday =
-                deliveredDate.getDate() === today.getDate() &&
-                deliveredDate.getMonth() === today.getMonth() &&
-                deliveredDate.getFullYear() === today.getFullYear();
-
-              const timeStr = deliveredDate.toLocaleTimeString("en-IN", {
-                hour: "numeric",
-                minute: "2-digit",
-                hour12: true,
-                timeZone: "Asia/Kolkata",
-              });
-
-              const statusText =
-                markerData.status === DocStatus.UNDELIVERED
-                  ? "DELIVERY FAILED"
-                  : "DELIVERED";
-
-              let timestampStr;
-              if (isToday) {
-                timestampStr = `${statusText} at ${timeStr} today`;
-              } else {
-                const dateStr = deliveredDate.toLocaleDateString("en-IN", {
-                  month: "short",
-                  day: "numeric",
-                  timeZone: "Asia/Kolkata",
-                });
-                timestampStr = `${statusText} at ${timeStr} on ${dateStr}`;
-              }
-
-              // Update the status display with timestamp
-              content = content.replace(
-                /<span style="color: [^"]+; font-weight: bold;">[^<]*<\/span>/,
-                `<span style="color: ${getStatusColor(
-                  markerData.status
-                )}; font-weight: bold;">${timestampStr}</span>`
-              );
-            }
-          }
-        } catch (error) {
-          console.error("Failed to fetch delivery status:", error);
-          // Continue without delivery status info
-        }
-      }
-
-      content += `
-        <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
-          <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
-            Tracking URL:
-          </p>
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <input 
-              type="text" 
-              value="${trackingUrl}" 
-              readonly 
-              style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; background: #f5f5f5;"
-              id="tracking-url-${markerData.id}"
-            />
-            <button 
-              onclick="copyToClipboard('tracking-url-${markerData.id}')"
-              style="padding: 4px 8px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
-            >
-              Copy
-            </button>
+      if (docsSource.length === 0) {
+        infoWindowRef.current.setContent(`
+          <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 320px;">
+            <p style="margin: 0; color: #666; font-size: 13px;">
+              No document information available for this customer.
+            </p>
           </div>
-        </div>
-      </div>
-    `;
+        `);
+        infoWindowRef.current.open(marker.getMap(), marker);
+        return;
+      }
 
-      // Add global copy function
-      (window as any).copyToClipboard = (inputId: string) => {
-        const input = document.getElementById(inputId) as HTMLInputElement;
-        if (input) {
-          input.select();
-          document.execCommand("copy");
-          // You could add a toast notification here
+      infoWindowRef.current.setContent(`
+        <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 320px;">
+          <p style="margin: 0; color: #666; font-size: 13px;">Loading customer documents...</p>
+        </div>
+      `);
+      infoWindowRef.current.open(marker.getMap(), marker);
+
+      const formatStatusLabel = (status: DocStatus): string => {
+        switch (status) {
+          case DocStatus.UNDELIVERED:
+            return "DELIVERY FAILED";
+          case DocStatus.DELIVERED:
+            return "DELIVERED";
+          case DocStatus.ON_TRIP:
+            return "On Trip";
+          case DocStatus.AT_TRANSIT_HUB:
+            return "At Transit Hub";
+          case DocStatus.TRIP_SCHEDULED:
+            return "Trip Scheduled";
+          case DocStatus.READY_FOR_DISPATCH:
+            return "Ready for Dispatch";
+          default:
+            return status || "Unknown";
         }
       };
 
+      const formatStatusWithTimestamp = (
+        status: DocStatus,
+        deliveredAt?: Date | null
+      ): string => {
+        if (
+          (status === DocStatus.DELIVERED ||
+            status === DocStatus.UNDELIVERED) &&
+          deliveredAt
+        ) {
+          const today = new Date();
+          const isToday =
+            deliveredAt.getDate() === today.getDate() &&
+            deliveredAt.getMonth() === today.getMonth() &&
+            deliveredAt.getFullYear() === today.getFullYear();
+
+          const timeStr = deliveredAt.toLocaleTimeString("en-IN", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+          });
+
+          const statusLabel =
+            status === DocStatus.UNDELIVERED ? "DELIVERY FAILED" : "DELIVERED";
+
+          if (isToday) {
+            return `${statusLabel} at ${timeStr} today`;
+          }
+
+          const dateStr = deliveredAt.toLocaleDateString("en-IN", {
+            month: "short",
+            day: "numeric",
+            timeZone: "Asia/Kolkata",
+          });
+          return `${statusLabel} at ${timeStr} on ${dateStr}`;
+        }
+
+        return formatStatusLabel(status);
+      };
+
+      const formatAmount = (amount?: string | null): string | null => {
+        if (!amount || amount.trim().length === 0) {
+          return null;
+        }
+
+        const numeric = Number(amount);
+        if (!Number.isNaN(numeric)) {
+          return `₹${numeric.toLocaleString("en-IN")}`;
+        }
+
+        return amount.startsWith("₹") ? amount : `₹${amount}`;
+      };
+
+      const docsWithDetails = await Promise.all(
+        docsSource.map(async (doc) => {
+          if (
+            doc.status === DocStatus.DELIVERED ||
+            doc.status === DocStatus.UNDELIVERED
+          ) {
+            try {
+              const deliveryStatus = await get<DeliveryStatusResponse>(
+                API_ENDPOINTS.DOC_DELIVERY_STATUS(doc.id)
+              );
+
+              if (deliveryStatus.success) {
+                return { doc, deliveryStatus };
+              }
+            } catch (error) {
+              console.error(
+                `Failed to fetch delivery status for ${doc.id}:`,
+                error
+              );
+            }
+          }
+
+          return { doc, deliveryStatus: null as DeliveryStatusResponse | null };
+        })
+      );
+
+      const carouselId = `doc-carousel-${sanitizeDomId(markerData.id)}`;
+
+      const slidesHtml = docsWithDetails
+        .map(({ doc, deliveryStatus }, index) => {
+          const trackingUrl = generateTrackingUrl(doc.id);
+          const trackingInputId = `tracking-url-${sanitizeDomId(doc.id)}`;
+
+          const deliveredAtDate = deliveryStatus?.deliveredAt
+            ? new Date(deliveryStatus.deliveredAt)
+            : null;
+          const isValidDate =
+            deliveredAtDate && !Number.isNaN(deliveredAtDate.getTime())
+              ? deliveredAtDate
+              : null;
+          const statusText = formatStatusWithTimestamp(doc.status, isValidDate);
+          const docAmountFormatted = formatAmount(doc.docAmount);
+          const docComment =
+            doc.comment && doc.comment.trim().length > 0 ? doc.comment : null;
+          const deliveryComment =
+            deliveryStatus?.comment && deliveryStatus.comment.trim().length > 0
+              ? deliveryStatus.comment
+              : null;
+          const signature = deliveryStatus?.signature;
+
+          return `
+            <div class="doc-slide" data-index="${index}" style="display: ${
+            index === 0 ? "block" : "none"
+          };">
+              <div style="margin-bottom: 8px;">
+                <p style="margin: 4px 0; color: #333; font-size: 14px;">
+                  <strong>Doc ID:</strong> ${doc.id}
+                </p>
+                <p style="margin: 4px 0; color: #333; font-size: 14px;">
+                  <strong>Status:</strong> 
+                  <span style="color: ${getDocStatusColor(
+                    doc.status
+                  )}; font-weight: bold;">
+                    ${statusText}
+                  </span>
+                </p>
+                ${
+                  docAmountFormatted
+                    ? `<p style="margin: 4px 0; color: #666; font-size: 13px;">
+                        <strong>Amount:</strong> ${docAmountFormatted}
+                      </p>`
+                    : ""
+                }
+                ${
+                  docComment
+                    ? `<p style="margin: 4px 0; color: #666; font-size: 13px;">
+                        <strong>Note:</strong> ${docComment}
+                      </p>`
+                    : ""
+                }
+              </div>
+              ${
+                signature
+                  ? `<div style="margin: 12px 0;">
+                      <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+                        Delivery Signature:
+                      </p>
+                      <img src="data:image/png;base64,${signature}" 
+                           style="max-width: 110px; max-height: 70px; border: 1px solid #ddd; border-radius: 4px;"
+                           alt="Delivery Signature" />
+                    </div>`
+                  : ""
+              }
+              ${
+                deliveryComment
+                  ? `<div style="margin: 12px 0;">
+                      <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+                        Delivery Comment:
+                      </p>
+                      <p style="margin: 0; color: #333; font-size: 12px; background: #f5f5f5; padding: 8px; border-radius: 4px;">
+                        ${deliveryComment}
+                      </p>
+                    </div>`
+                  : ""
+              }
+              <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee;">
+                <p style="margin: 4px 0; color: #666; font-size: 12px; font-weight: bold;">
+                  Tracking URL:
+                </p>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <input 
+                    type="text" 
+                    value="${trackingUrl}" 
+                    readonly 
+                    style="flex: 1; padding: 4px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; background: #f5f5f5;"
+                    id="${trackingInputId}"
+                  />
+                  <button 
+                    onclick="window.copyToClipboard('${trackingInputId}')"
+                    style="padding: 4px 8px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      const navigationControls = `
+        <div style="display: flex; align-items: center; justify-content: space-between; margin: 8px 0 12px;">
+          <button 
+            id="${carouselId}-prev"
+            onclick="window.navigateDocCarousel('${carouselId}', -1)"
+            style="padding: 4px 8px; background: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+          >
+            ◀
+          </button>
+          <span id="${carouselId}-indicator" style="font-size: 12px; color: #555;">
+            Doc 1 of ${docsWithDetails.length}
+          </span>
+          <button 
+            id="${carouselId}-next"
+            onclick="window.navigateDocCarousel('${carouselId}', 1)"
+            style="padding: 4px 8px; background: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+          >
+            ▶
+          </button>
+        </div>
+      `;
+
+      const content = `
+        <div style="padding: 8px; font-family: Arial, sans-serif; max-width: 320px;">
+          <h4 style="margin: 0 0 8px 0; color: #333;">
+            ${markerData.customerInfo.firmName}
+          </h4>
+          <p style="margin: 4px 0; color: #666; font-size: 13px;">
+            <strong>Address:</strong> ${markerData.customerInfo.address}, ${markerData.customerInfo.city}
+          </p>
+          <p style="margin: 4px 0; color: #666; font-size: 13px;">
+            <strong>Phone:</strong> ${markerData.customerInfo.phone}
+          </p>
+          ${navigationControls}
+          <div id="${carouselId}" class="doc-carousel-container">
+            ${slidesHtml}
+          </div>
+        </div>
+      `;
+
+      const windowAny = window as any;
+
+      if (!windowAny.copyToClipboard) {
+        windowAny.copyToClipboard = (inputId: string) => {
+          const input = document.getElementById(
+            inputId
+          ) as HTMLInputElement | null;
+          if (input) {
+            input.select();
+            document.execCommand("copy");
+          }
+        };
+      }
+
+      if (!windowAny.docCarouselState) {
+        windowAny.docCarouselState = {};
+      }
+
+      if (!windowAny.initDocCarousel) {
+        windowAny.initDocCarousel = (carouselId: string, total: number) => {
+          windowAny.docCarouselState[carouselId] = { index: 0, total };
+          const container = document.getElementById(carouselId);
+          if (!container) {
+            return;
+          }
+          const slides = container.querySelectorAll(".doc-slide");
+          slides.forEach((slide: Element, idx: number) => {
+            (slide as HTMLElement).style.display = idx === 0 ? "block" : "none";
+          });
+          const indicator = document.getElementById(`${carouselId}-indicator`);
+          if (indicator) {
+            indicator.textContent =
+              total > 0 ? `Doc 1 of ${total}` : "No documents";
+          }
+          const prevButton = document.getElementById(
+            `${carouselId}-prev`
+          ) as HTMLButtonElement | null;
+          const nextButton = document.getElementById(
+            `${carouselId}-next`
+          ) as HTMLButtonElement | null;
+          const shouldDisable = total <= 1;
+          if (prevButton) {
+            prevButton.disabled = shouldDisable;
+            prevButton.style.opacity = shouldDisable ? "0.5" : "1";
+          }
+          if (nextButton) {
+            nextButton.disabled = shouldDisable;
+            nextButton.style.opacity = shouldDisable ? "0.5" : "1";
+          }
+        };
+      }
+
+      if (!windowAny.navigateDocCarousel) {
+        windowAny.navigateDocCarousel = (
+          carouselId: string,
+          direction: number
+        ) => {
+          const state = windowAny.docCarouselState?.[carouselId];
+          if (!state || state.total <= 1) {
+            return;
+          }
+          let nextIndex = state.index + direction;
+          if (nextIndex < 0) {
+            nextIndex = state.total - 1;
+          } else if (nextIndex >= state.total) {
+            nextIndex = 0;
+          }
+          const container = document.getElementById(carouselId);
+          if (!container) {
+            return;
+          }
+          const slides = container.querySelectorAll(".doc-slide");
+          slides.forEach((slide: Element, idx: number) => {
+            (slide as HTMLElement).style.display =
+              idx === nextIndex ? "block" : "none";
+          });
+          const indicator = document.getElementById(`${carouselId}-indicator`);
+          if (indicator) {
+            indicator.textContent = `Doc ${nextIndex + 1} of ${state.total}`;
+          }
+          state.index = nextIndex;
+        };
+      }
+
       infoWindowRef.current.setContent(content);
       infoWindowRef.current.open(marker.getMap(), marker);
+      setTimeout(() => {
+        windowAny.initDocCarousel(carouselId, docsWithDetails.length);
+      }, 50);
     },
     [get]
   );
-
-  // Helper function to get status color
-  const getStatusColor = (status?: string): string => {
-    switch (status) {
-      case DocStatus.DELIVERED:
-        return "#4caf50";
-      case DocStatus.UNDELIVERED:
-        return "#f44336";
-      case DocStatus.ON_TRIP:
-        return "#2196f3";
-      case DocStatus.AT_TRANSIT_HUB:
-        return "#ff9800";
-      default:
-        return "#666";
-    }
-  };
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [selectedTripId, setSelectedTripId] = useState<number | null>(null);
@@ -829,7 +1028,7 @@ const TripDashboard: React.FC = () => {
         );
       }
     },
-    onError: (error: any) => {
+    onError: (_error: any) => {
       setDocSearchError("Doc ID not found.");
     },
   });
@@ -1119,34 +1318,80 @@ const TripDashboard: React.FC = () => {
   useEffect(() => {
     if (!selectedTripId || !selectedTrip?.docGroups) return;
 
-    const customerMarkers: MapMarker[] = [];
+    const customerMarkersMap = new Map<string, MapMarker>();
     const selectedTripDriverMarker: MapMarker[] = [];
+
+    const pickHigherPriorityStatus = (
+      current?: DocStatus,
+      candidate?: DocStatus
+    ): DocStatus | undefined => {
+      if (!candidate) {
+        return current;
+      }
+
+      if (!current) {
+        return candidate;
+      }
+
+      const priority: Record<DocStatus, number> = {
+        [DocStatus.UNDELIVERED]: 5,
+        [DocStatus.ON_TRIP]: 4,
+        [DocStatus.AT_TRANSIT_HUB]: 3,
+        [DocStatus.TRIP_SCHEDULED]: 2,
+        [DocStatus.READY_FOR_DISPATCH]: 1,
+        [DocStatus.DELIVERED]: 0,
+      };
+
+      return priority[candidate] > priority[current] ? candidate : current;
+    };
 
     // Add customer markers for selected trip (only for direct deliveries, not lots)
     selectedTrip.docGroups.forEach((docGroup) => {
       docGroup.docs.forEach((doc) => {
         // Only show markers for documents WITHOUT a lot (direct deliveries only)
         if (doc.customerGeoLatitude && doc.customerGeoLongitude && !doc.lot) {
-          customerMarkers.push({
-            id: `customer-${doc.id}`,
-            position: {
-              lat: parseFloat(doc.customerGeoLatitude),
-              lng: parseFloat(doc.customerGeoLongitude),
-            },
-            type: "customer",
-            title: doc.customerFirmName,
-            status: doc.status,
-            tripId: selectedTrip.tripId,
-            customerInfo: {
-              firmName: doc.customerFirmName,
-              address: doc.customerAddress,
-              city: doc.customerCity,
-              phone: doc.customerPhone,
-            },
-          });
+          const key =
+            doc.customerId && doc.customerId.trim().length > 0
+              ? doc.customerId
+              : `${doc.customerFirmName}-${doc.customerGeoLatitude}-${doc.customerGeoLongitude}`;
+          const markerId = `customer-${sanitizeDomId(key)}`;
+          const existingMarker = customerMarkersMap.get(key);
+
+          if (existingMarker) {
+            existingMarker.customerDocs = [
+              ...(existingMarker.customerDocs ?? []),
+              doc,
+            ];
+            existingMarker.status = pickHigherPriorityStatus(
+              existingMarker.status,
+              doc.status
+            );
+          } else {
+            customerMarkersMap.set(key, {
+              id: markerId,
+              position: {
+                lat: parseFloat(doc.customerGeoLatitude),
+                lng: parseFloat(doc.customerGeoLongitude),
+              },
+              type: "customer",
+              title: doc.customerFirmName,
+              status: doc.status,
+              tripId: selectedTrip.tripId,
+              customerInfo: {
+                firmName: doc.customerFirmName,
+                address: doc.customerAddress,
+                city: doc.customerCity,
+                phone: doc.customerPhone,
+              },
+              customerId: doc.customerId,
+              customerDocs: [doc],
+            });
+          }
         }
       });
     });
+
+    const customerMarkers = Array.from(customerMarkersMap.values());
 
     // Add driver marker for selected trip only
     if (
@@ -1502,7 +1747,7 @@ const TripDashboard: React.FC = () => {
                   <Button
                     variant="contained"
                     size="small"
-                    startIcon={<Map />}
+                    startIcon={<MapIcon />}
                     onClick={() => setSelectedTripId(null)}
                     sx={{
                       minWidth: "auto",

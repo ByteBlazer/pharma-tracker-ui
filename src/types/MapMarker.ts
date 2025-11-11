@@ -1,4 +1,5 @@
 import { DocStatus } from "./DocStatus";
+import { Doc } from "./Doc";
 
 export interface MapMarker {
   id: string;
@@ -16,4 +17,6 @@ export interface MapMarker {
     city: string;
     phone: string;
   };
+  customerId?: string;
+  customerDocs?: Doc[];
 }
