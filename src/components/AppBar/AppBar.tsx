@@ -18,6 +18,7 @@ import {
   People as UsersIcon,
   Storefront as LocationIcon,
   LocalShipping as TripsIcon,
+  Assessment as ReportsIcon,
   Logout as LogoutIcon,
   Settings as SettingsIcon,
 } from "@mui/icons-material";
@@ -83,6 +84,7 @@ const AppBar: React.FC = () => {
     { path: "/users", label: "Users", icon: UsersIcon },
     { path: "/base-locations", label: "Locations", icon: LocationIcon },
     { path: "/trips", label: "Trips", icon: TripsIcon },
+    { path: "/reports", label: "Reports", icon: ReportsIcon },
   ];
 
   const handleSettingsClick = () => {
