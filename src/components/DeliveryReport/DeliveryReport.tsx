@@ -264,13 +264,14 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
         sx={{
           display: "flex",
           alignItems: "center",
-          gap: 2,
-          mb: 3,
+          gap: 1.5,
+          mb: 1.5,
         }}
       >
         {onBack && (
           <Button
             variant="outlined"
+            size="small"
             startIcon={<ArrowBackIcon />}
             onClick={onBack}
             sx={{ minWidth: "auto" }}
@@ -278,7 +279,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
             Back to Reports
           </Button>
         )}
-        <Typography variant="h4" sx={{ fontWeight: "bold" }}>
+        <Typography variant="h5" sx={{ fontWeight: "bold" }}>
           Delivery Report
         </Typography>
       </Box>

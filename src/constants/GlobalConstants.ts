@@ -32,6 +32,7 @@ export const API_ENDPOINTS = {
   ROUTES: `${API_BASE_URL}/routes`,
   ORIGIN_WAREHOUSES: `${API_BASE_URL}/origin-warehouses`,
   AVAILABLE_DRIVERS: `${API_BASE_URL}/trip/available-drivers`,
+  DOC_SIGNATURE: (docId: string) => `${API_BASE_URL}/doc/signature/${docId}`,
 } as const;
 
 // Setting Names

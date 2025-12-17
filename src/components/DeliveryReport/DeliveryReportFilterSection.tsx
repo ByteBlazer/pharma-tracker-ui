@@ -213,13 +213,13 @@ const DeliveryReportFilterSection: React.FC<
   );
 
   return (
-    <Paper sx={{ p: 3, mb: 3 }}>
-      <Box sx={{ mb: 2 }}>
-        <h2>Filters</h2>
+    <Paper sx={{ p: 2, mb: 2 }}>
+      <Box sx={{ mb: 1 }}>
+        <h3 style={{ margin: 0, fontSize: "1.1rem" }}>Filters</h3>
       </Box>
 
       {validationError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 1.5, py: 0.5 }}>
           {validationError}
         </Alert>
       )}
@@ -232,7 +232,7 @@ const DeliveryReportFilterSection: React.FC<
             sm: "repeat(2, 1fr)",
             md: "repeat(4, 1fr)",
           },
-          gap: 2,
+          gap: 1.5,
         }}
       >
         {/* Date Range */}
@@ -242,6 +242,7 @@ const DeliveryReportFilterSection: React.FC<
             value={formatDateForDisplay(filters.fromDate)}
             onClick={handleFromDateDisplayClick}
             fullWidth
+            size="small"
             InputLabelProps={{ shrink: true }}
             placeholder="Click to select date"
             InputProps={{
@@ -275,6 +276,7 @@ const DeliveryReportFilterSection: React.FC<
             value={formatDateForDisplay(filters.toDate)}
             onClick={handleToDateDisplayClick}
             fullWidth
+            size="small"
             InputLabelProps={{ shrink: true }}
             placeholder="Click to select date"
             InputProps={{
@@ -309,6 +311,7 @@ const DeliveryReportFilterSection: React.FC<
           value={filters.docId || ""}
           onChange={handleDocIdChange}
           fullWidth
+          size="small"
           autoComplete="off"
           InputProps={docIdInputProps}
         />
@@ -324,7 +327,7 @@ const DeliveryReportFilterSection: React.FC<
             onFilterChange("customerId", newValue?.id || undefined);
           }}
           renderInput={(params) => (
-            <TextField {...params} label="Customer" fullWidth />
+            <TextField {...params} label="Customer" fullWidth size="small" />
           )}
           isOptionEqualToValue={(option, value) => option.id === value.id}
           filterOptions={(options, { inputValue }) => {
@@ -357,7 +360,12 @@ const DeliveryReportFilterSection: React.FC<
             );
           }}
           renderInput={(params) => (
-            <TextField {...params} label="Customer City" fullWidth />
+            <TextField
+              {...params}
+              label="Customer City"
+              fullWidth
+              size="small"
+            />
           )}
           renderOption={(props, option, { selected }) => (
             <li {...props}>
@@ -365,16 +373,15 @@ const DeliveryReportFilterSection: React.FC<
               {option}
             </li>
           )}
-          renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
-              <Chip
-                variant="outlined"
-                label={option}
-                size="small"
-                {...getTagProps({ index })}
-              />
-            ))
-          }
+          renderTags={(value) => (
+            <Chip
+              variant="outlined"
+              label={`${value.length} ${
+                value.length === 1 ? "city" : "cities"
+              } selected`}
+              size="small"
+            />
+          )}
           noOptionsText="No cities found"
           fullWidth
         />
@@ -386,7 +393,12 @@ const DeliveryReportFilterSection: React.FC<
             onFilterChange("originWarehouse", newValue || undefined);
           }}
           renderInput={(params) => (
-            <TextField {...params} label="Origin Warehouse" fullWidth />
+            <TextField
+              {...params}
+              label="Origin Warehouse"
+              fullWidth
+              size="small"
+            />
           )}
           noOptionsText="No warehouses found"
           fullWidth
@@ -399,7 +411,7 @@ const DeliveryReportFilterSection: React.FC<
             onFilterChange("route", newValue || undefined);
           }}
           renderInput={(params) => (
-            <TextField {...params} label="Route" fullWidth />
+            <TextField {...params} label="Route" fullWidth size="small" />
           )}
           noOptionsText="No routes found"
           fullWidth
@@ -412,6 +424,7 @@ const DeliveryReportFilterSection: React.FC<
           value={filters.tripId || ""}
           onChange={handleTripIdChange}
           fullWidth
+          size="small"
           inputProps={{ min: 1 }}
           InputProps={tripIdInputProps}
         />
@@ -441,7 +454,7 @@ const DeliveryReportFilterSection: React.FC<
             </Box>
           )}
           renderInput={(params) => (
-            <TextField {...params} label="Driver" fullWidth />
+            <TextField {...params} label="Driver" fullWidth size="small" />
           )}
           isOptionEqualToValue={(option, value) =>
             option.userId === value.userId
@@ -478,6 +491,7 @@ const DeliveryReportFilterSection: React.FC<
               {...params}
               label="Parent Trip Originated From"
               fullWidth
+              size="small"
             />
           )}
           isOptionEqualToValue={(option, value) => option.id === value.id}
@@ -494,6 +508,7 @@ const DeliveryReportFilterSection: React.FC<
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button
             variant="contained"
+            size="small"
             startIcon={<SearchIcon />}
             onClick={onSearch}
             disabled={!!validationError}
@@ -503,6 +518,7 @@ const DeliveryReportFilterSection: React.FC<
           </Button>
           <Button
             variant="outlined"
+            size="small"
             startIcon={<ClearIcon />}
             onClick={onClear}
             fullWidth
