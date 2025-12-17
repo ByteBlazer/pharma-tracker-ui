@@ -8,7 +8,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableContainer,
   TableHead,
   TableRow,
   Chip,
@@ -16,7 +15,7 @@ import {
 import { DeliveryReportResponse } from "../../types/DeliveryReport";
 import { DocStatus } from "../../types/DocStatus";
 
-interface DataDisplaySectionProps {
+interface DeliveryReportDataDisplaySectionProps {
   reportData?: DeliveryReportResponse;
   isLoading: boolean;
   isFetching: boolean;
@@ -27,7 +26,9 @@ interface DataDisplaySectionProps {
   getStatusColor: (status: string) => "success" | "error" | "default";
 }
 
-const DataDisplaySection: React.FC<DataDisplaySectionProps> = ({
+const DeliveryReportDataDisplaySection: React.FC<
+  DeliveryReportDataDisplaySectionProps
+> = ({
   reportData,
   isLoading,
   isFetching,
@@ -88,44 +89,140 @@ const DataDisplaySection: React.FC<DataDisplaySectionProps> = ({
               No records found for the selected filters.
             </Alert>
           ) : (
-            <TableContainer component={Paper}>
+            <Paper sx={{ overflow: "visible" }}>
               <Table sx={{ minWidth: 650 }} size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Doc ID</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Status</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Customer</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>City</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Doc Date</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Trip ID</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Driver</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Vehicle</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Route</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Origin Warehouse</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Created By</strong>
                     </TableCell>
-                    <TableCell>
+                    <TableCell
+                      sx={{
+                        position: "sticky",
+                        top: 64,
+                        backgroundColor: "background.paper",
+                        zIndex: 10,
+                        boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                      }}
+                    >
                       <strong>Last Updated</strong>
                     </TableCell>
                   </TableRow>
@@ -190,7 +287,7 @@ const DataDisplaySection: React.FC<DataDisplaySectionProps> = ({
                   ))}
                 </TableBody>
               </Table>
-            </TableContainer>
+            </Paper>
           )}
         </Box>
       )}
@@ -199,13 +296,16 @@ const DataDisplaySection: React.FC<DataDisplaySectionProps> = ({
 };
 
 // Memoize the component to prevent re-renders when filters change
-export default React.memo(DataDisplaySection, (prevProps, nextProps) => {
-  // Only re-render if data-related props change
-  return (
-    prevProps.reportData === nextProps.reportData &&
-    prevProps.isLoading === nextProps.isLoading &&
-    prevProps.isFetching === nextProps.isFetching &&
-    prevProps.isError === nextProps.isError &&
-    prevProps.error === nextProps.error
-  );
-});
+export default React.memo(
+  DeliveryReportDataDisplaySection,
+  (prevProps, nextProps) => {
+    // Only re-render if data-related props change
+    return (
+      prevProps.reportData === nextProps.reportData &&
+      prevProps.isLoading === nextProps.isLoading &&
+      prevProps.isFetching === nextProps.isFetching &&
+      prevProps.isError === nextProps.isError &&
+      prevProps.error === nextProps.error
+    );
+  }
+);

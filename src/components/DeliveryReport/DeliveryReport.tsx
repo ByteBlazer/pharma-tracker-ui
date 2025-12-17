@@ -12,8 +12,8 @@ import { DocStatus } from "../../types/DocStatus";
 import { LightweightCustomer } from "../../types/LightweightCustomer";
 import { AvailableDriversResponse } from "../../types/AvailableDriver";
 import { BaseLocation } from "../../types/BaseLocation";
-import FilterSection from "./FilterSection";
-import DataDisplaySection from "./DataDisplaySection";
+import DeliveryReportFilterSection from "./DeliveryReportFilterSection";
+import DeliveryReportDataDisplaySection from "./DeliveryReportDataDisplaySection";
 
 interface DeliveryReportProps {
   onBack?: () => void;
@@ -284,7 +284,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       </Box>
 
       {/* Filters Section */}
-      <FilterSection
+      <DeliveryReportFilterSection
         filters={filters}
         validationError={validationError}
         customersData={customersData}
@@ -299,7 +299,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       />
 
       {/* Results Section */}
-      <DataDisplaySection
+      <DeliveryReportDataDisplaySection
         reportData={reportData}
         isLoading={isLoading}
         isFetching={isFetching}

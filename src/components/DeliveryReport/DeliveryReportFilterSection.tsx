@@ -9,18 +9,20 @@ import {
   IconButton,
   Chip,
   Checkbox,
+  InputAdornment,
 } from "@mui/material";
 import {
   Search as SearchIcon,
   Clear as ClearIcon,
   Close as CloseIcon,
+  CalendarToday as CalendarIcon,
 } from "@mui/icons-material";
 import { DeliveryReportFilters } from "../../types/DeliveryReport";
 import { LightweightCustomer } from "../../types/LightweightCustomer";
 import { AvailableDriver } from "../../types/AvailableDriver";
 import { BaseLocation } from "../../types/BaseLocation";
 
-interface FilterSectionProps {
+interface DeliveryReportFilterSectionProps {
   filters: DeliveryReportFilters;
   validationError: string | null;
   customersData?: LightweightCustomer[];
@@ -34,7 +36,9 @@ interface FilterSectionProps {
   onClear: () => void;
 }
 
-const FilterSection: React.FC<FilterSectionProps> = ({
+const DeliveryReportFilterSection: React.FC<
+  DeliveryReportFilterSectionProps
+> = ({
   filters,
   validationError,
   customersData,
@@ -47,19 +51,119 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   onSearch,
   onClear,
 }) => {
+  // Format date from YYYY-MM-DD to DD MMM YYYY (e.g., "10 Dec 2025")
+  const formatDateForDisplay = React.useCallback(
+    (dateString: string | undefined): string => {
+      if (!dateString) return "";
+      try {
+        const date = new Date(dateString + "T00:00:00"); // Add time to avoid timezone issues
+        const day = date.getDate().toString().padStart(2, "0");
+        const monthNames = [
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr",
+          "May",
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+        ];
+        const month = monthNames[date.getMonth()];
+        const year = date.getFullYear();
+        return `${day} ${month} ${year}`;
+      } catch {
+        return dateString;
+      }
+    },
+    []
+  );
+
+  // Parse date from DD MMM YYYY format back to YYYY-MM-DD
+  const parseDateFromDisplay = React.useCallback(
+    (displayValue: string): string => {
+      if (!displayValue) return "";
+      try {
+        // Try to parse formats like "10 Dec 2025" with various separators
+        const parts = displayValue.trim().split(/[\s,\-./]+/);
+        if (parts.length >= 3) {
+          const day = parts[0].padStart(2, "0");
+          const monthNames = [
+            "Jan",
+            "Feb",
+            "Mar",
+            "Apr",
+            "May",
+            "Jun",
+            "Jul",
+            "Aug",
+            "Sep",
+            "Oct",
+            "Nov",
+            "Dec",
+          ];
+          const monthStr = parts[1].substring(0, 3);
+          const monthIndex = monthNames.findIndex(
+            (m) => m.toLowerCase() === monthStr.toLowerCase()
+          );
+          if (monthIndex !== -1) {
+            const month = (monthIndex + 1).toString().padStart(2, "0");
+            const year = parts[2];
+            // Validate the date
+            const date = new Date(`${year}-${month}-${day}T00:00:00`);
+            if (
+              !isNaN(date.getTime()) &&
+              date.getDate() === parseInt(day) &&
+              date.getMonth() === monthIndex &&
+              date.getFullYear() === parseInt(year)
+            ) {
+              return `${year}-${month}-${day}`;
+            }
+          }
+        }
+        // If parsing fails, try to parse as ISO date (YYYY-MM-DD)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(displayValue)) {
+          const date = new Date(displayValue + "T00:00:00");
+          if (!isNaN(date.getTime())) {
+            return displayValue;
+          }
+        }
+      } catch {
+        // If all parsing fails, return empty string
+      }
+      return "";
+    },
+    []
+  );
+
   const handleFromDateChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onFilterChange("fromDate", e.target.value);
+      onFilterChange("fromDate", e.target.value || undefined);
     },
     [onFilterChange]
   );
 
   const handleToDateChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onFilterChange("toDate", e.target.value);
+      onFilterChange("toDate", e.target.value || undefined);
     },
     [onFilterChange]
   );
+
+  // Refs for hidden date inputs
+  const fromDateInputRef = React.useRef<HTMLInputElement>(null);
+  const toDateInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFromDateDisplayClick = () => {
+    fromDateInputRef.current?.showPicker?.();
+  };
+
+  const handleToDateDisplayClick = () => {
+    toDateInputRef.current?.showPicker?.();
+  };
 
   const handleDocIdChange = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,24 +236,72 @@ const FilterSection: React.FC<FilterSectionProps> = ({
         }}
       >
         {/* Date Range */}
-        <TextField
-          label="From Date"
-          type="date"
-          value={filters.fromDate || ""}
-          onChange={handleFromDateChange}
-          fullWidth
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ max: filters.toDate || undefined }}
-        />
-        <TextField
-          label="To Date"
-          type="date"
-          value={filters.toDate || ""}
-          onChange={handleToDateChange}
-          fullWidth
-          InputLabelProps={{ shrink: true }}
-          inputProps={{ min: filters.fromDate || undefined }}
-        />
+        <Box sx={{ position: "relative" }}>
+          <TextField
+            label="From Date"
+            value={formatDateForDisplay(filters.fromDate)}
+            onClick={handleFromDateDisplayClick}
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            placeholder="Click to select date"
+            InputProps={{
+              readOnly: true,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <CalendarIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ cursor: "pointer" }}
+          />
+          <input
+            ref={fromDateInputRef}
+            type="date"
+            value={filters.fromDate || ""}
+            onChange={handleFromDateChange}
+            max={filters.toDate || undefined}
+            style={{
+              position: "absolute",
+              opacity: 0,
+              pointerEvents: "none",
+              width: 0,
+              height: 0,
+            }}
+          />
+        </Box>
+        <Box sx={{ position: "relative" }}>
+          <TextField
+            label="To Date"
+            value={formatDateForDisplay(filters.toDate)}
+            onClick={handleToDateDisplayClick}
+            fullWidth
+            InputLabelProps={{ shrink: true }}
+            placeholder="Click to select date"
+            InputProps={{
+              readOnly: true,
+              startAdornment: (
+                <InputAdornment position="start">
+                  <CalendarIcon fontSize="small" color="action" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ cursor: "pointer" }}
+          />
+          <input
+            ref={toDateInputRef}
+            type="date"
+            value={filters.toDate || ""}
+            onChange={handleToDateChange}
+            min={filters.fromDate || undefined}
+            style={{
+              position: "absolute",
+              opacity: 0,
+              pointerEvents: "none",
+              width: 0,
+              height: 0,
+            }}
+          />
+        </Box>
 
         {/* Document Filters */}
         <TextField
@@ -324,7 +476,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Original Trip Start Location"
+              label="Parent Trip Originated From"
               fullWidth
             />
           )}
@@ -363,4 +515,4 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   );
 };
 
-export default FilterSection;
+export default DeliveryReportFilterSection;
