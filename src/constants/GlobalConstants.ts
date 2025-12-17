@@ -27,6 +27,7 @@ export const API_ENDPOINTS = {
   DOC_DELIVERY_STATUS: (docId: string) =>
     `${API_BASE_URL}/doc/delivery-status/${docId}`,
   DOC_SEARCH: (docId: string) => `${API_BASE_URL}/trip/doc-search/${docId}`,
+  DELIVERY_REPORT: `${API_BASE_URL}/report/delivery-report-data`,
 } as const;
 
 // Setting Names
