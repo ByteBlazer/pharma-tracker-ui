@@ -28,6 +28,10 @@ export const API_ENDPOINTS = {
     `${API_BASE_URL}/doc/delivery-status/${docId}`,
   DOC_SEARCH: (docId: string) => `${API_BASE_URL}/trip/doc-search/${docId}`,
   DELIVERY_REPORT: `${API_BASE_URL}/report/delivery-report-data`,
+  CUSTOMERS_LIGHTWEIGHT: `${API_BASE_URL}/customers?lightweight=true`,
+  ROUTES: `${API_BASE_URL}/routes`,
+  ORIGIN_WAREHOUSES: `${API_BASE_URL}/origin-warehouses`,
+  AVAILABLE_DRIVERS: `${API_BASE_URL}/trip/available-drivers`,
 } as const;
 
 // Setting Names

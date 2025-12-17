@@ -1,14 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import {
   Box,
   Typography,
   Paper,
   TextField,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   CircularProgress,
   Table,
@@ -18,11 +14,15 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Autocomplete,
+  IconButton,
+  Checkbox,
 } from "@mui/material";
 import {
   Search as SearchIcon,
   Clear as ClearIcon,
   ArrowBack as ArrowBackIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { useQuery } from "@tanstack/react-query";
 import { useApiService } from "../../hooks/useApiService";
@@ -32,6 +32,12 @@ import {
   DeliveryReportFilters,
 } from "../../types/DeliveryReport";
 import { DocStatus } from "../../types/DocStatus";
+import { LightweightCustomer } from "../../types/LightweightCustomer";
+import {
+  AvailableDriversResponse,
+  AvailableDriver,
+} from "../../types/AvailableDriver";
+import { BaseLocation } from "../../types/BaseLocation";
 
 interface DeliveryReportProps {
   onBack?: () => void;
@@ -66,30 +72,106 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     });
   }, []);
 
-  // Build query string from filters
-  const buildQueryString = (params: DeliveryReportFilters): string => {
-    const queryParts: string[] = [];
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        queryParts.push(`${key}=${encodeURIComponent(value)}`);
-      }
-    });
-    return queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
-  };
+  // Build query string from filters - memoized to prevent recreation
+  const buildQueryString = React.useCallback(
+    (params: DeliveryReportFilters): string => {
+      const queryParts: string[] = [];
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          queryParts.push(`${key}=${encodeURIComponent(value)}`);
+        }
+      });
+      return queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    },
+    []
+  );
 
   // Create a stable query key from queryParams
-  const queryKey = React.useMemo(() => {
+  const queryKeyString = React.useMemo(() => {
     const sortedParams = Object.keys(queryParams)
       .sort()
       .map((key) => `${key}:${queryParams[key as keyof DeliveryReportFilters]}`)
       .join("|");
-    return ["delivery-report", sortedParams];
-  }, [queryParams]);
+    return sortedParams;
+  }, [
+    queryParams.fromDate,
+    queryParams.toDate,
+    queryParams.docId,
+    queryParams.customerId,
+    queryParams.customerCity,
+    queryParams.originWarehouse,
+    queryParams.tripId,
+    queryParams.driverUserId,
+    queryParams.route,
+    queryParams.tripStartLocation,
+  ]);
+
+  const queryKey = React.useMemo(
+    () => ["delivery-report", queryKeyString],
+    [queryKeyString]
+  );
+
+  // Fetch customers for city dropdown
+  const { data: customersData } = useQuery<LightweightCustomer[]>({
+    queryKey: ["customers-lightweight"],
+    queryFn: () =>
+      get<LightweightCustomer[]>(API_ENDPOINTS.CUSTOMERS_LIGHTWEIGHT),
+    staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Extract unique cities from customers data
+  const cities = React.useMemo(() => {
+    if (!customersData || customersData.length === 0) {
+      return [];
+    }
+    const citySet = new Set<string>();
+    customersData.forEach((customer) => {
+      if (customer.city) {
+        citySet.add(customer.city);
+      }
+    });
+    return Array.from(citySet).sort();
+  }, [customersData]);
+
+  // Fetch routes from API
+  const { data: routesData } = useQuery<string[]>({
+    queryKey: ["routes"],
+    queryFn: () => get<string[]>(API_ENDPOINTS.ROUTES),
+    staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch origin warehouses from API
+  const { data: originWarehousesData } = useQuery<string[]>({
+    queryKey: ["origin-warehouses"],
+    queryFn: () => get<string[]>(API_ENDPOINTS.ORIGIN_WAREHOUSES),
+    staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch available drivers from API
+  const { data: driversResponse } = useQuery<AvailableDriversResponse>({
+    queryKey: ["available-drivers"],
+    queryFn: () =>
+      get<AvailableDriversResponse>(API_ENDPOINTS.AVAILABLE_DRIVERS),
+    staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
+    refetchOnWindowFocus: false,
+  });
+
+  // Fetch base locations from API
+  const { data: baseLocationsData } = useQuery<BaseLocation[]>({
+    queryKey: ["base-locations"],
+    queryFn: () => get<BaseLocation[]>(API_ENDPOINTS.BASE_LOCATIONS),
+    staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
+    refetchOnWindowFocus: false,
+  });
 
   // Fetch delivery report data
   const {
     data: reportData,
     isLoading,
+    isFetching,
     isError,
     error,
   } = useQuery<DeliveryReportResponse>({
@@ -101,9 +183,9 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       );
     },
     enabled: Object.keys(queryParams).length > 0,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    staleTime: 0, // Always consider data stale to ensure refetch on filter change
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: false, // Don't refetch on component mount if data exists
+    refetchOnMount: true, // Refetch on component mount
   });
 
   // Validate date range (max 30 days) - memoized to avoid recalculation on every render
@@ -137,6 +219,28 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     []
   );
 
+  // Memoize specific onChange handlers to prevent TextField re-renders
+  const handleFromDateChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      handleFilterChange("fromDate", e.target.value);
+    },
+    [handleFilterChange]
+  );
+
+  const handleToDateChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      handleFilterChange("toDate", e.target.value);
+    },
+    [handleFilterChange]
+  );
+
+  const handleDocIdChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      handleFilterChange("docId", e.target.value);
+    },
+    [handleFilterChange]
+  );
+
   const handleSearch = () => {
     if (validationError) {
       return;
@@ -154,7 +258,8 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     setQueryParams(clearedFilters);
   };
 
-  const getStatusColor = (status: string) => {
+  // Memoize status color function
+  const getStatusColor = React.useCallback((status: string) => {
     switch (status) {
       case DocStatus.DELIVERED:
         return "success";
@@ -163,9 +268,53 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       default:
         return "default";
     }
-  };
+  }, []);
 
-  const formatDate = (dateString: string): string => {
+  // Memoize Doc ID InputProps to prevent unnecessary re-renders
+  const docIdInputProps = React.useMemo(
+    () => ({
+      endAdornment: filters.docId ? (
+        <IconButton
+          size="small"
+          onClick={() => handleFilterChange("docId", undefined)}
+          sx={{ mr: -1 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      ) : undefined,
+    }),
+    [filters.docId, handleFilterChange]
+  );
+
+  // Memoize Trip ID onChange handler
+  const handleTripIdChange = React.useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      handleFilterChange(
+        "tripId",
+        e.target.value ? parseInt(e.target.value, 10) : undefined
+      );
+    },
+    [handleFilterChange]
+  );
+
+  // Memoize Trip ID InputProps to prevent unnecessary re-renders
+  const tripIdInputProps = React.useMemo(
+    () => ({
+      endAdornment: filters.tripId ? (
+        <IconButton
+          size="small"
+          onClick={() => handleFilterChange("tripId", undefined)}
+          sx={{ mr: -1 }}
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
+      ) : undefined,
+    }),
+    [filters.tripId, handleFilterChange]
+  );
+
+  // Memoize format functions to prevent recreation on every render
+  const formatDate = React.useCallback((dateString: string): string => {
     if (!dateString) return "-";
     try {
       const date = new Date(dateString);
@@ -178,9 +327,9 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     } catch {
       return dateString;
     }
-  };
+  }, []);
 
-  const formatDateTime = (dateString: string): string => {
+  const formatDateTime = React.useCallback((dateString: string): string => {
     if (!dateString) return "-";
     try {
       const date = new Date(dateString);
@@ -196,38 +345,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     } catch {
       return dateString;
     }
-  };
-
-  // Extract unique values for dropdowns from report data
-  // Only process if we have data and limit processing to avoid blocking UI
-  const uniqueValues = useMemo(() => {
-    if (!reportData?.data || reportData.data.length === 0) {
-      return {
-        cities: [],
-        routes: [],
-        warehouses: [],
-      };
-    }
-
-    // Use a more efficient approach - process in chunks if needed
-    const cities = new Set<string>();
-    const routes = new Set<string>();
-    const warehouses = new Set<string>();
-
-    // Process data efficiently
-    for (let i = 0; i < reportData.data.length; i++) {
-      const item = reportData.data[i];
-      if (item.city) cities.add(item.city);
-      if (item.route) routes.add(item.route);
-      if (item.originWarehouse) warehouses.add(item.originWarehouse);
-    }
-
-    return {
-      cities: Array.from(cities).sort(),
-      routes: Array.from(routes).sort(),
-      warehouses: Array.from(warehouses).sort(),
-    };
-  }, [reportData?.data]); // Only depend on the data array, not the whole reportData object
+  }, []);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -282,7 +400,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
             label="From Date"
             type="date"
             value={filters.fromDate || ""}
-            onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+            onChange={handleFromDateChange}
             fullWidth
             InputLabelProps={{ shrink: true }}
             inputProps={{ max: filters.toDate || undefined }}
@@ -291,7 +409,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
             label="To Date"
             type="date"
             value={filters.toDate || ""}
-            onChange={(e) => handleFilterChange("toDate", e.target.value)}
+            onChange={handleToDateChange}
             fullWidth
             InputLabelProps={{ shrink: true }}
             inputProps={{ min: filters.fromDate || undefined }}
@@ -301,124 +419,189 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
           <TextField
             label="Doc ID"
             value={filters.docId || ""}
-            onChange={(e) => handleFilterChange("docId", e.target.value)}
+            onChange={handleDocIdChange}
             fullWidth
+            autoComplete="off"
+            InputProps={docIdInputProps}
           />
-          <TextField
-            label="Customer ID"
-            value={filters.customerId || ""}
-            onChange={(e) => handleFilterChange("customerId", e.target.value)}
+          <Autocomplete
+            options={customersData || []}
+            getOptionLabel={(option) =>
+              option ? `${option.firmName} (${option.id})` : ""
+            }
+            value={
+              customersData?.find((c) => c.id === filters.customerId) || null
+            }
+            onChange={(_, newValue) => {
+              handleFilterChange("customerId", newValue?.id || undefined);
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Customer" fullWidth />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            filterOptions={(options, { inputValue }) => {
+              return options.filter(
+                (option) =>
+                  option.firmName
+                    .toLowerCase()
+                    .includes(inputValue.toLowerCase()) ||
+                  option.id.toLowerCase().includes(inputValue.toLowerCase())
+              );
+            }}
+            noOptionsText="No customers found"
             fullWidth
           />
 
           {/* Dropdown Filters */}
-          <FormControl fullWidth>
-            <InputLabel>Customer City</InputLabel>
-            <Select
-              value={filters.customerCity || ""}
-              onChange={(e) =>
-                handleFilterChange("customerCity", e.target.value)
-              }
-              label="Customer City"
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                  },
-                },
-              }}
-            >
-              <MenuItem value="">
-                <em>All Cities</em>
-              </MenuItem>
-              {uniqueValues.cities.map((city) => (
-                <MenuItem key={city} value={city}>
-                  {city}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            multiple
+            disableCloseOnSelect
+            options={cities}
+            value={
+              filters.customerCity
+                ? filters.customerCity.split(",").filter((c) => c.trim())
+                : []
+            }
+            onChange={(_, newValue) => {
+              handleFilterChange(
+                "customerCity",
+                newValue.length > 0 ? newValue.join(",") : undefined
+              );
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Customer City" fullWidth />
+            )}
+            renderOption={(props, option, { selected }) => (
+              <li {...props}>
+                <Checkbox checked={selected} />
+                {option}
+              </li>
+            )}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  variant="outlined"
+                  label={option}
+                  size="small"
+                  {...getTagProps({ index })}
+                />
+              ))
+            }
+            noOptionsText="No cities found"
+            fullWidth
+          />
 
-          <FormControl fullWidth>
-            <InputLabel>Origin Warehouse</InputLabel>
-            <Select
-              value={filters.originWarehouse || ""}
-              onChange={(e) =>
-                handleFilterChange("originWarehouse", e.target.value)
-              }
-              label="Origin Warehouse"
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                  },
-                },
-              }}
-            >
-              <MenuItem value="">
-                <em>All Warehouses</em>
-              </MenuItem>
-              {uniqueValues.warehouses.map((warehouse) => (
-                <MenuItem key={warehouse} value={warehouse}>
-                  {warehouse}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={originWarehousesData || []}
+            value={filters.originWarehouse || null}
+            onChange={(_, newValue) => {
+              handleFilterChange("originWarehouse", newValue || undefined);
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Origin Warehouse" fullWidth />
+            )}
+            noOptionsText="No warehouses found"
+            fullWidth
+          />
 
-          <FormControl fullWidth>
-            <InputLabel>Route</InputLabel>
-            <Select
-              value={filters.route || ""}
-              onChange={(e) => handleFilterChange("route", e.target.value)}
-              label="Route"
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                  },
-                },
-              }}
-            >
-              <MenuItem value="">
-                <em>All Routes</em>
-              </MenuItem>
-              {uniqueValues.routes.map((route) => (
-                <MenuItem key={route} value={route}>
-                  {route}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          <Autocomplete
+            options={routesData || []}
+            value={filters.route || null}
+            onChange={(_, newValue) => {
+              handleFilterChange("route", newValue || undefined);
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Route" fullWidth />
+            )}
+            noOptionsText="No routes found"
+            fullWidth
+          />
 
           {/* Trip Filters */}
           <TextField
             label="Trip ID"
             type="number"
             value={filters.tripId || ""}
-            onChange={(e) =>
-              handleFilterChange(
-                "tripId",
-                e.target.value ? parseInt(e.target.value, 10) : undefined
-              )
-            }
+            onChange={handleTripIdChange}
             fullWidth
             inputProps={{ min: 1 }}
+            InputProps={tripIdInputProps}
           />
 
-          <TextField
-            label="Driver User ID"
-            value={filters.driverUserId || ""}
-            onChange={(e) => handleFilterChange("driverUserId", e.target.value)}
+          <Autocomplete
+            options={driversResponse?.drivers || []}
+            getOptionLabel={(option) =>
+              option ? `${option.driverName} - ${option.baseLocationName}` : ""
+            }
+            value={
+              driversResponse?.drivers.find(
+                (d: AvailableDriver) => d.userId === filters.driverUserId
+              ) || null
+            }
+            onChange={(_, newValue) => {
+              handleFilterChange("driverUserId", newValue?.userId || undefined);
+            }}
+            renderOption={(props, option) => (
+              <Box
+                component="li"
+                {...props}
+                sx={{
+                  fontWeight: option.sameLocation ? "bold" : "normal",
+                }}
+              >
+                {option.driverName} - {option.baseLocationName}
+              </Box>
+            )}
+            renderInput={(params) => (
+              <TextField {...params} label="Driver" fullWidth />
+            )}
+            isOptionEqualToValue={(option, value) =>
+              option.userId === value.userId
+            }
+            filterOptions={(options, { inputValue }) => {
+              return options.filter(
+                (option) =>
+                  option.driverName
+                    .toLowerCase()
+                    .includes(inputValue.toLowerCase()) ||
+                  option.baseLocationName
+                    .toLowerCase()
+                    .includes(inputValue.toLowerCase()) ||
+                  option.userId.toLowerCase().includes(inputValue.toLowerCase())
+              );
+            }}
+            noOptionsText="No drivers found"
             fullWidth
           />
 
-          <TextField
-            label="Trip Start Location"
-            value={filters.tripStartLocation || ""}
-            onChange={(e) =>
-              handleFilterChange("tripStartLocation", e.target.value)
+          <Autocomplete
+            options={baseLocationsData || []}
+            getOptionLabel={(option) => (option ? option.name : "")}
+            value={
+              baseLocationsData?.find(
+                (loc) => loc.id === filters.tripStartLocation
+              ) || null
             }
+            onChange={(_, newValue) => {
+              handleFilterChange(
+                "tripStartLocation",
+                newValue?.id || undefined
+              );
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Original Trip Start Location"
+                fullWidth
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option.id === value.id}
+            filterOptions={(options, { inputValue }) => {
+              return options.filter((option) =>
+                option.name.toLowerCase().includes(inputValue.toLowerCase())
+              );
+            }}
+            noOptionsText="No locations found"
             fullWidth
           />
 
@@ -446,13 +629,25 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       </Paper>
 
       {/* Results Section */}
-      {isLoading && (
-        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress />
+      {(isLoading || isFetching) && (
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            p: 4,
+            minHeight: "200px",
+          }}
+        >
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="body2" color="text.secondary">
+            Loading report data...
+          </Typography>
         </Box>
       )}
 
-      {isError && (
+      {isError && !isFetching && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error instanceof Error
             ? error.message
@@ -460,7 +655,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
         </Alert>
       )}
 
-      {reportData && !isLoading && (
+      {reportData && !isLoading && !isFetching && (
         <Box>
           <Box
             sx={{
