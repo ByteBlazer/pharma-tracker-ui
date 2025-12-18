@@ -23,8 +23,9 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   const { get } = useApiService();
   const [filters, setFilters] = useState<DeliveryReportFilters>({});
   const [queryParams, setQueryParams] = useState<DeliveryReportFilters>({});
+  const [hasSearched, setHasSearched] = useState(false);
 
-  // Calculate default date range (last 7 days)
+  // Calculate default date range (last 7 days) - used for Clear button
   const getDefaultDateRange = () => {
     const today = new Date();
     const sevenDaysAgo = new Date();
@@ -34,19 +35,6 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       toDate: today.toISOString().split("T")[0],
     };
   };
-
-  // Initialize with default date range
-  React.useEffect(() => {
-    const defaultRange = getDefaultDateRange();
-    setFilters({
-      fromDate: defaultRange.fromDate,
-      toDate: defaultRange.toDate,
-    });
-    setQueryParams({
-      fromDate: defaultRange.fromDate,
-      toDate: defaultRange.toDate,
-    });
-  }, []);
 
   // Build query string from filters - memoized to prevent recreation
   const buildQueryString = React.useCallback(
@@ -86,6 +74,11 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     () => ["delivery-report", queryKeyString],
     [queryKeyString]
   );
+
+  // Only enable query if user has searched and queryParams has values
+  const shouldFetchData = React.useMemo(() => {
+    return hasSearched && Object.keys(queryParams).length > 0;
+  }, [hasSearched, queryParams]);
 
   // Fetch customers for city dropdown
   const { data: customersData } = useQuery<LightweightCustomer[]>({
@@ -158,27 +151,42 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
         `${API_ENDPOINTS.DELIVERY_REPORT}${queryString}`
       );
     },
-    enabled: Object.keys(queryParams).length > 0,
+    enabled: shouldFetchData,
     staleTime: 0, // Always consider data stale to ensure refetch on filter change
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: true, // Refetch on component mount
+    refetchOnMount: false, // Don't refetch on component mount - wait for user to search
   });
 
-  // Validate date range (max 30 days) - memoized to avoid recalculation on every render
+  // Validate date range - memoized to avoid recalculation on every render
   const validationError = React.useMemo((): string | null => {
-    if (!filters.fromDate || !filters.toDate) return null;
+    const hasFromDate = !!filters.fromDate;
+    const hasToDate = !!filters.toDate;
 
-    const from = new Date(filters.fromDate);
-    const to = new Date(filters.toDate);
-    const diffTime = Math.abs(to.getTime() - from.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays > 30) {
-      return "Date range cannot exceed 30 days";
+    // Both must be provided or both must be blank
+    if (hasFromDate && !hasToDate) {
+      return "To Date is required when From Date is provided";
     }
 
-    if (from > to) {
-      return "From date cannot be after To date";
+    if (!hasFromDate && hasToDate) {
+      return "From Date is required when To Date is provided";
+    }
+
+    // If both are provided, validate that From date <= To date and range <= 30 days
+    if (hasFromDate && hasToDate && filters.fromDate && filters.toDate) {
+      const from = new Date(filters.fromDate);
+      const to = new Date(filters.toDate);
+
+      if (from > to) {
+        return "From date cannot be after To date";
+      }
+
+      // Check 30-day limit
+      const diffTime = Math.abs(to.getTime() - from.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays > 30) {
+        return "Date range cannot exceed 30 days";
+      }
     }
 
     return null;
@@ -200,6 +208,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       return;
     }
     setQueryParams({ ...filters });
+    setHasSearched(true);
   };
 
   const handleClear = () => {
@@ -209,7 +218,8 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
       toDate: defaultRange.toDate,
     };
     setFilters(clearedFilters);
-    setQueryParams(clearedFilters);
+    setQueryParams({});
+    setHasSearched(false);
   };
 
   // Memoize status color function
@@ -309,6 +319,12 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
         formatDate={formatDate}
         formatDateTime={formatDateTime}
         getStatusColor={getStatusColor}
+        show30DayMessage={
+          !filters.fromDate &&
+          !filters.toDate &&
+          (!filters.docId || filters.docId.length < 3) &&
+          !filters.customerId
+        }
       />
     </Box>
   );
