@@ -75,10 +75,10 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     [queryKeyString]
   );
 
-  // Only enable query if user has searched and queryParams has values
+  // Only enable query if user has searched
   const shouldFetchData = React.useMemo(() => {
-    return hasSearched && Object.keys(queryParams).length > 0;
-  }, [hasSearched, queryParams]);
+    return hasSearched;
+  }, [hasSearched]);
 
   // Fetch customers for city dropdown
   const { data: customersData } = useQuery<LightweightCustomer[]>({
@@ -214,8 +214,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   const handleClear = () => {
     const clearedFilters: DeliveryReportFilters = {};
     setFilters(clearedFilters);
-    setQueryParams({});
-    setHasSearched(false);
+    // Don't update queryParams or hasSearched - keep existing data until user clicks Search
   };
 
   // Memoize status color function
