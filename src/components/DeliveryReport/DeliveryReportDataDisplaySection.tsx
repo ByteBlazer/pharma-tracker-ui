@@ -63,26 +63,35 @@ const DeliveryReportDataDisplaySection: React.FC<
   const [currentComment, setCurrentComment] = useState<string>("");
   const [currentCommentDocId, setCurrentCommentDocId] = useState<string>("");
 
-  const handleViewSignature = async (docId: string) => {
-    setCurrentDocId(docId);
-    setSignatureModalOpen(true);
-    setSignatureLoading(true);
-    setSignatureError(null);
-    setSignatureData(null);
+  // Store get function in ref to avoid breaking memoization
+  const getRef = React.useRef(get);
+  React.useEffect(() => {
+    getRef.current = get;
+  }, [get]);
 
-    try {
-      const response = await get<SignatureResponse>(
-        API_ENDPOINTS.DOC_SIGNATURE(docId)
-      );
-      setSignatureData(response);
-    } catch (err) {
-      setSignatureError(
-        err instanceof Error ? err.message : "Failed to load signature"
-      );
-    } finally {
-      setSignatureLoading(false);
-    }
-  };
+  const handleViewSignature = React.useCallback(
+    async (docId: string) => {
+      setCurrentDocId(docId);
+      setSignatureModalOpen(true);
+      setSignatureLoading(true);
+      setSignatureError(null);
+      setSignatureData(null);
+
+      try {
+        const response = await getRef.current<SignatureResponse>(
+          API_ENDPOINTS.DOC_SIGNATURE(docId)
+        );
+        setSignatureData(response);
+      } catch (err) {
+        setSignatureError(
+          err instanceof Error ? err.message : "Failed to load signature"
+        );
+      } finally {
+        setSignatureLoading(false);
+      }
+    },
+    [] // Empty deps - get is accessed via ref
+  );
 
   const handleCloseSignatureModal = () => {
     setSignatureModalOpen(false);
@@ -103,17 +112,115 @@ const DeliveryReportDataDisplaySection: React.FC<
     document.body.removeChild(link);
   };
 
-  const handleViewComment = (docId: string, comment: string) => {
-    setCurrentCommentDocId(docId);
-    setCurrentComment(comment || "No comment available");
-    setCommentModalOpen(true);
-  };
+  const handleViewComment = React.useCallback(
+    (docId: string, comment: string) => {
+      setCurrentCommentDocId(docId);
+      setCurrentComment(comment || "No comment available");
+      setCommentModalOpen(true);
+    },
+    []
+  );
 
   const handleCloseCommentModal = () => {
     setCommentModalOpen(false);
     setCurrentComment("");
     setCurrentCommentDocId("");
   };
+
+  // Memoize table rows to prevent re-rendering when only modal state changes
+  const tableRows = React.useMemo(() => {
+    if (!reportData?.data) return [];
+    const rows = reportData.data.map((row) => (
+      <TableRow key={row.docId} hover>
+        <TableCell>{row.docId}</TableCell>
+        <TableCell>{formatDate(row.docDate)}</TableCell>
+        <TableCell>
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+              {row.firmName || "-"}
+            </Typography>
+            {row.address && (
+              <Typography variant="caption" color="text.secondary">
+                {row.address}
+              </Typography>
+            )}
+          </Box>
+        </TableCell>
+        <TableCell>{row.city || "-"}</TableCell>
+        <TableCell>
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 0.5,
+            }}
+          >
+            <Chip
+              label={
+                row.status === DocStatus.UNDELIVERED
+                  ? "DELIVERY FAILED"
+                  : row.status
+              }
+              color={getStatusColor(row.status) as any}
+              size="small"
+            />
+            {row.status === DocStatus.DELIVERED && (
+              <Link
+                component="button"
+                variant="caption"
+                onClick={() => handleViewSignature(row.docId)}
+                sx={{
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  fontSize: "0.75rem",
+                }}
+              >
+                View Signature
+              </Link>
+            )}
+            {row.status === DocStatus.UNDELIVERED && (
+              <Link
+                component="button"
+                variant="caption"
+                onClick={() => handleViewComment(row.docId, row.comment)}
+                sx={{
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  fontSize: "0.75rem",
+                }}
+              >
+                View Comment
+              </Link>
+            )}
+          </Box>
+        </TableCell>
+        <TableCell>{row.tripId}</TableCell>
+        <TableCell>{row.route || "-"}</TableCell>
+        <TableCell>
+          <Box>
+            <Typography variant="body2">
+              {row.createdByPersonName || "-"}
+            </Typography>
+            {row.createdByLocation && (
+              <Typography variant="caption" color="text.secondary">
+                {row.createdByLocation}
+              </Typography>
+            )}
+          </Box>
+        </TableCell>
+        <TableCell>{row.driverName || "-"}</TableCell>
+        <TableCell>{row.vehicleNbr || "-"}</TableCell>
+        <TableCell>{row.originWarehouse || "-"}</TableCell>
+      </TableRow>
+    ));
+    return rows;
+  }, [
+    reportData?.data,
+    formatDate,
+    getStatusColor,
+    handleViewSignature,
+    handleViewComment,
+  ]);
 
   return (
     <>
@@ -311,102 +418,7 @@ const DeliveryReportDataDisplaySection: React.FC<
                       </TableCell>
                     </TableRow>
                   </TableHead>
-                  <TableBody>
-                    {reportData.data.map((row) => (
-                      <TableRow key={row.docId} hover>
-                        <TableCell>{row.docId}</TableCell>
-                        <TableCell>{formatDate(row.docDate)}</TableCell>
-                        <TableCell>
-                          <Box>
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: "bold" }}
-                            >
-                              {row.firmName || "-"}
-                            </Typography>
-                            {row.address && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {row.address}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell>{row.city || "-"}</TableCell>
-                        <TableCell>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              flexDirection: "column",
-                              gap: 0.5,
-                            }}
-                          >
-                            <Chip
-                              label={
-                                row.status === DocStatus.UNDELIVERED
-                                  ? "DELIVERY FAILED"
-                                  : row.status
-                              }
-                              color={getStatusColor(row.status) as any}
-                              size="small"
-                            />
-                            {row.status === DocStatus.DELIVERED && (
-                              <Link
-                                component="button"
-                                variant="caption"
-                                onClick={() => handleViewSignature(row.docId)}
-                                sx={{
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                  fontSize: "0.75rem",
-                                }}
-                              >
-                                View Signature
-                              </Link>
-                            )}
-                            {row.status === DocStatus.UNDELIVERED && (
-                              <Link
-                                component="button"
-                                variant="caption"
-                                onClick={() =>
-                                  handleViewComment(row.docId, row.comment)
-                                }
-                                sx={{
-                                  cursor: "pointer",
-                                  textDecoration: "underline",
-                                  fontSize: "0.75rem",
-                                }}
-                              >
-                                View Comment
-                              </Link>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell>{row.tripId}</TableCell>
-                        <TableCell>{row.route || "-"}</TableCell>
-                        <TableCell>
-                          <Box>
-                            <Typography variant="body2">
-                              {row.createdByPersonName || "-"}
-                            </Typography>
-                            {row.createdByLocation && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {row.createdByLocation}
-                              </Typography>
-                            )}
-                          </Box>
-                        </TableCell>
-                        <TableCell>{row.driverName || "-"}</TableCell>
-                        <TableCell>{row.vehicleNbr || "-"}</TableCell>
-                        <TableCell>{row.originWarehouse || "-"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                  <TableBody>{tableRows}</TableBody>
                 </Table>
               </TableContainer>
             </Paper>
