@@ -313,6 +313,7 @@ const DeliveryReportFilterSection: React.FC<
           fullWidth
           size="small"
           autoComplete="off"
+          placeholder="Last 3 digits or more"
           InputProps={docIdInputProps}
         />
         <Autocomplete

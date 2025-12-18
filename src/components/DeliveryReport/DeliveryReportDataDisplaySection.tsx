@@ -35,6 +35,7 @@ interface DeliveryReportDataDisplaySectionProps {
   formatDate: (dateString: string) => string;
   formatDateTime: (dateString: string) => string;
   getStatusColor: (status: string) => "success" | "error" | "default";
+  show30DayMessage?: boolean;
 }
 
 const DeliveryReportDataDisplaySection: React.FC<
@@ -48,6 +49,7 @@ const DeliveryReportDataDisplaySection: React.FC<
   formatDate,
   formatDateTime,
   getStatusColor,
+  show30DayMessage = false,
 }) => {
   const { get } = useApiService();
   const [signatureModalOpen, setSignatureModalOpen] = useState(false);
@@ -188,9 +190,20 @@ const DeliveryReportDataDisplaySection: React.FC<
               mb: 2,
             }}
           >
-            <Typography variant="h6">
-              Results: {reportData.totalRecords} records
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="h6" sx={{ lineHeight: 1.5 }}>
+                Results: {reportData.totalRecords} records
+              </Typography>
+              {show30DayMessage && (
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ lineHeight: 1.5 }}
+                >
+                  (Note: Data fetched for the last 30 days only)
+                </Typography>
+              )}
+            </Box>
           </Box>
 
           {reportData.data.length === 0 ? (
@@ -480,13 +493,13 @@ const DeliveryReportDataDisplaySection: React.FC<
             </Box>
           )}
 
-          {signatureError && (
+          {signatureError && !signatureLoading && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {signatureError}
             </Alert>
           )}
 
-          {signatureData && !signatureLoading && (
+          {signatureData && !signatureLoading && !signatureError && (
             <Box>
               <Box
                 sx={{
