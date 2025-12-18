@@ -13,6 +13,7 @@ import PublicTracking from "./PublicTracking/PublicTracking";
 import "./App.css";
 import { GlobalContextProvider } from "./GlobalContextProvider";
 import BaseLocations from "./BaseLocations/BaseLocations";
+import Reports from "./Reports/Reports";
 
 function App() {
   return (
@@ -71,6 +72,17 @@ function AppContent() {
               {loggedInUser && <AppBar />}
               <ProtectedRoute>
                 <TripDashboard />
+              </ProtectedRoute>
+            </>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <>
+              {loggedInUser && <AppBar />}
+              <ProtectedRoute>
+                <Reports />
               </ProtectedRoute>
             </>
           }
