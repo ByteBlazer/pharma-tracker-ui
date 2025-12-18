@@ -212,11 +212,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   };
 
   const handleClear = () => {
-    const defaultRange = getDefaultDateRange();
-    const clearedFilters: DeliveryReportFilters = {
-      fromDate: defaultRange.fromDate,
-      toDate: defaultRange.toDate,
-    };
+    const clearedFilters: DeliveryReportFilters = {};
     setFilters(clearedFilters);
     setQueryParams({});
     setHasSearched(false);
