@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Box,
   Typography,
@@ -62,8 +62,6 @@ const DeliveryReportDataDisplaySection: React.FC<
   const [commentModalOpen, setCommentModalOpen] = useState(false);
   const [currentComment, setCurrentComment] = useState<string>("");
   const [currentCommentDocId, setCurrentCommentDocId] = useState<string>("");
-  const topScrollRef = React.useRef<HTMLDivElement>(null);
-  const tableScrollRef = React.useRef<HTMLDivElement>(null);
 
   const handleViewSignature = async (docId: string) => {
     setCurrentDocId(docId);
@@ -116,38 +114,6 @@ const DeliveryReportDataDisplaySection: React.FC<
     setCurrentComment("");
     setCurrentCommentDocId("");
   };
-
-  // Sync scroll positions
-  const handleTopScroll = () => {
-    if (tableScrollRef.current && topScrollRef.current) {
-      tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
-    }
-  };
-
-  const handleTableScroll = () => {
-    if (topScrollRef.current && tableScrollRef.current) {
-      topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
-    }
-  };
-
-  // Sync the top scrollbar width with table width
-  useEffect(() => {
-    if (tableScrollRef.current && topScrollRef.current) {
-      const syncWidth = () => {
-        if (tableScrollRef.current && topScrollRef.current) {
-          const tableWidth = tableScrollRef.current.scrollWidth;
-          topScrollRef.current.style.width = `${tableScrollRef.current.clientWidth}px`;
-          const innerBox = topScrollRef.current.querySelector("div");
-          if (innerBox) {
-            innerBox.style.width = `${tableWidth}px`;
-          }
-        }
-      };
-      syncWidth();
-      window.addEventListener("resize", syncWidth);
-      return () => window.removeEventListener("resize", syncWidth);
-    }
-  }, [reportData]);
 
   return (
     <>
@@ -212,25 +178,7 @@ const DeliveryReportDataDisplaySection: React.FC<
             </Alert>
           ) : (
             <Paper>
-              {/* Top scrollbar */}
-              <Box
-                ref={topScrollRef}
-                onScroll={handleTopScroll}
-                sx={{
-                  overflowX: "auto",
-                  overflowY: "hidden",
-                  height: "20px",
-                  borderBottom: "1px solid",
-                  borderColor: "divider",
-                  direction: "ltr",
-                }}
-              >
-                <Box sx={{ minWidth: "650px", height: "1px" }} />
-              </Box>
-              {/* Table container */}
               <TableContainer
-                ref={tableScrollRef}
-                onScroll={handleTableScroll}
                 sx={{
                   overflowX: "auto",
                   maxHeight: "calc(100vh - 475px)",
