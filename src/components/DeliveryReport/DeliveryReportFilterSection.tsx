@@ -532,4 +532,21 @@ const DeliveryReportFilterSection: React.FC<
   );
 };
 
-export default DeliveryReportFilterSection;
+// Memoize the component to prevent unnecessary re-renders
+export default React.memo(
+  DeliveryReportFilterSection,
+  (prevProps, nextProps) => {
+    // Custom comparison - only re-render if props actually changed
+    const propsChanged =
+      prevProps.filters !== nextProps.filters ||
+      prevProps.validationError !== nextProps.validationError ||
+      prevProps.customersData !== nextProps.customersData ||
+      prevProps.cities !== nextProps.cities ||
+      prevProps.routesData !== nextProps.routesData ||
+      prevProps.originWarehousesData !== nextProps.originWarehousesData ||
+      prevProps.driversResponse !== nextProps.driversResponse ||
+      prevProps.baseLocationsData !== nextProps.baseLocationsData;
+
+    return !propsChanged; // Return true if props are equal (skip render)
+  }
+);

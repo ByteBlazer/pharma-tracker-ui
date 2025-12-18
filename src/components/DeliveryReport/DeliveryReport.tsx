@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Typography, Button } from "@mui/material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiService } from "../../hooks/useApiService";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import {
@@ -21,9 +21,28 @@ interface DeliveryReportProps {
 
 const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   const { get } = useApiService();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<DeliveryReportFilters>({});
   const [queryParams, setQueryParams] = useState<DeliveryReportFilters>({});
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Track if component has been initialized
+  const hasInitializedRef = React.useRef(false);
+
+  // Reset state when component first mounts or when back button is clicked
+  React.useEffect(() => {
+    if (!hasInitializedRef.current) {
+      setFilters({});
+      setQueryParams({});
+      setHasSearched(false);
+      // Invalidate and remove cached delivery report data
+      queryClient.removeQueries({ queryKey: ["delivery-report"] });
+      hasInitializedRef.current = true;
+    }
+  }, [queryClient]);
+
+  // Reset state when back button is clicked (handled by onBack callback)
+  // We'll also expose a reset function via ref if needed
 
   // Calculate default date range (last 7 days) - used for Clear button
   const getDefaultDateRange = () => {
@@ -214,8 +233,23 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   const handleClear = () => {
     const clearedFilters: DeliveryReportFilters = {};
     setFilters(clearedFilters);
-    // Don't update queryParams or hasSearched - keep existing data until user clicks Search
+    setQueryParams({});
+    setHasSearched(false);
+    // Clear query cache when clearing filters
+    queryClient.removeQueries({ queryKey: ["delivery-report"] });
   };
+
+  // Enhanced onBack handler that also resets state
+  const handleBack = React.useCallback(() => {
+    // Reset state when navigating back
+    setFilters({});
+    setQueryParams({});
+    setHasSearched(false);
+    queryClient.removeQueries({ queryKey: ["delivery-report"] });
+    if (onBack) {
+      onBack();
+    }
+  }, [onBack, queryClient]);
 
   // Memoize status color function
   const getStatusColor = React.useCallback((status: string) => {
@@ -278,7 +312,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
             variant="outlined"
             size="small"
             startIcon={<ArrowBackIcon />}
-            onClick={onBack}
+            onClick={handleBack}
             sx={{ minWidth: "auto" }}
           >
             Back to Reports
