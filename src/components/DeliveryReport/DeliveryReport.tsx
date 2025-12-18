@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Box, Typography, Button } from "@mui/material";
 import { ArrowBack as ArrowBackIcon } from "@mui/icons-material";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useApiService } from "../../hooks/useApiService";
 import { API_ENDPOINTS } from "../../constants/GlobalConstants";
 import {
@@ -21,20 +21,18 @@ interface DeliveryReportProps {
 
 const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   const { get } = useApiService();
+  const queryClient = useQueryClient();
   const [filters, setFilters] = useState<DeliveryReportFilters>({});
   const [queryParams, setQueryParams] = useState<DeliveryReportFilters>({});
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Calculate default date range (last 7 days) - used for Clear button
-  const getDefaultDateRange = () => {
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 7);
-    return {
-      fromDate: sevenDaysAgo.toISOString().split("T")[0],
-      toDate: today.toISOString().split("T")[0],
-    };
-  };
+  // Reset state when component first mounts
+  React.useEffect(() => {
+    setFilters({});
+    setQueryParams({});
+    setHasSearched(false);
+    queryClient.removeQueries({ queryKey: ["delivery-report"] });
+  }, [queryClient]);
 
   // Build query string from filters - memoized to prevent recreation
   const buildQueryString = React.useCallback(
@@ -51,34 +49,13 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   );
 
   // Create a stable query key from queryParams
-  const queryKeyString = React.useMemo(() => {
+  const queryKey = React.useMemo(() => {
     const sortedParams = Object.keys(queryParams)
       .sort()
       .map((key) => `${key}:${queryParams[key as keyof DeliveryReportFilters]}`)
       .join("|");
-    return sortedParams;
-  }, [
-    queryParams.fromDate,
-    queryParams.toDate,
-    queryParams.docId,
-    queryParams.customerId,
-    queryParams.customerCity,
-    queryParams.originWarehouse,
-    queryParams.tripId,
-    queryParams.driverUserId,
-    queryParams.route,
-    queryParams.tripStartLocation,
-  ]);
-
-  const queryKey = React.useMemo(
-    () => ["delivery-report", queryKeyString],
-    [queryKeyString]
-  );
-
-  // Only enable query if user has searched
-  const shouldFetchData = React.useMemo(() => {
-    return hasSearched;
-  }, [hasSearched]);
+    return ["delivery-report", sortedParams];
+  }, [queryParams]);
 
   // Fetch customers for city dropdown
   const { data: customersData } = useQuery<LightweightCustomer[]>({
@@ -151,7 +128,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
         `${API_ENDPOINTS.DELIVERY_REPORT}${queryString}`
       );
     },
-    enabled: shouldFetchData,
+    enabled: hasSearched,
     staleTime: 0, // Always consider data stale to ensure refetch on filter change
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
     refetchOnMount: false, // Don't refetch on component mount - wait for user to search
@@ -192,16 +169,12 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
     return null;
   }, [filters.fromDate, filters.toDate]);
 
-  // Memoize filter change handler to prevent unnecessary re-renders
-  const handleFilterChange = React.useCallback(
-    (key: keyof DeliveryReportFilters, value: any) => {
-      setFilters((prev) => ({
-        ...prev,
-        [key]: value || undefined,
-      }));
-    },
-    []
-  );
+  const handleFilterChange = (key: keyof DeliveryReportFilters, value: any) => {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value || undefined,
+    }));
+  };
 
   const handleSearch = () => {
     if (validationError) {
@@ -214,7 +187,18 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
   const handleClear = () => {
     const clearedFilters: DeliveryReportFilters = {};
     setFilters(clearedFilters);
-    // Don't update queryParams or hasSearched - keep existing data until user clicks Search
+    setQueryParams({});
+    setHasSearched(false);
+    // Clear query cache when clearing filters
+    queryClient.removeQueries({ queryKey: ["delivery-report"] });
+  };
+
+  const handleBack = () => {
+    setFilters({});
+    setQueryParams({});
+    setHasSearched(false);
+    queryClient.removeQueries({ queryKey: ["delivery-report"] });
+    onBack?.();
   };
 
   // Memoize status color function
@@ -278,7 +262,7 @@ const DeliveryReport: React.FC<DeliveryReportProps> = ({ onBack }) => {
             variant="outlined"
             size="small"
             startIcon={<ArrowBackIcon />}
-            onClick={onBack}
+            onClick={handleBack}
             sx={{ minWidth: "auto" }}
           >
             Back to Reports
