@@ -20,7 +20,8 @@ import {
   Link,
 } from "@mui/material";
 import { Download as DownloadIcon } from "@mui/icons-material";
-import { DeliveryReportResponse } from "../../types/DeliveryReport";
+import * as XLSX from "xlsx";
+import { DeliveryReportResponse, DeliveryReportItem } from "../../types/DeliveryReport";
 import { DocStatus } from "../../types/DocStatus";
 import { SignatureResponse } from "../../types/SignatureResponse";
 import { useApiService } from "../../hooks/useApiService";
@@ -126,6 +127,44 @@ const DeliveryReportDataDisplaySection: React.FC<
     setCurrentComment("");
     setCurrentCommentDocId("");
   };
+
+  const handleDownloadExcel = React.useCallback(() => {
+    if (!reportData?.data?.length) return;
+
+    const formatSignatureTimestamp = (row: DeliveryReportItem): string => {
+      if (row.status === DocStatus.DELIVERED && row.lastUpdatedAt) {
+        return formatDateTime(row.lastUpdatedAt);
+      }
+      return "";
+    };
+
+    const statusLabel = (status: string) =>
+      status === DocStatus.UNDELIVERED ? "DELIVERY FAILED" : status;
+
+    const rows = reportData.data.map((row) => ({
+      "Doc ID": row.docId,
+      "Doc Date": formatDate(row.docDate),
+      "Firm Name": row.firmName || "",
+      "Address": row.address || "",
+      "City": row.city || "",
+      "Status": statusLabel(row.status),
+      "Signature Timestamp": formatSignatureTimestamp(row),
+      "Trip ID": row.tripId,
+      "Route": row.route || "",
+      "Trip Creator Name": row.createdByPersonName || "",
+      "Trip Creator Location": row.createdByLocation || "",
+      "Driver": row.driverName || "",
+      "Vehicle": row.vehicleNbr || "",
+      "Origin Warehouse": row.originWarehouse || "",
+      "Comment": row.comment || "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Delivery Report");
+    const filename = `delivery-report-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+  }, [reportData?.data, formatDate, formatDateTime]);
 
   // Memoize table rows to prevent re-rendering when only modal state changes
   const tableRows = React.useMemo(() => {
@@ -277,6 +316,17 @@ const DeliveryReportDataDisplaySection: React.FC<
                 </Typography>
               )}
             </Box>
+            {reportData.data.length > 0 && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<DownloadIcon />}
+                onClick={handleDownloadExcel}
+                size="medium"
+              >
+                Download Excel
+              </Button>
+            )}
           </Box>
 
           {reportData.data.length === 0 ? (
