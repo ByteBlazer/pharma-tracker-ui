@@ -160,7 +160,7 @@ const GoogleMap: React.FC<GoogleMapProps> = ({
           if (markerElement && markerElement.url) {
             // Find the img element in the DOM and add animation class
             const imgs = document.querySelectorAll(
-              'img[src="/truck-front.png"]'
+              'img[src="/truck-front.png"]',
             );
             imgs.forEach((img) => {
               img.classList.add("driver-marker-pulse");
@@ -601,7 +601,7 @@ const TripDashboard: React.FC = () => {
 
       const formatStatusWithTimestamp = (
         status: DocStatus,
-        deliveredAt?: Date | null
+        deliveredAt?: Date | null,
       ): string => {
         if (
           (status === DocStatus.DELIVERED ||
@@ -660,7 +660,7 @@ const TripDashboard: React.FC = () => {
           ) {
             try {
               const deliveryStatus = await get<DeliveryStatusResponse>(
-                API_ENDPOINTS.DOC_DELIVERY_STATUS(doc.id)
+                API_ENDPOINTS.DOC_DELIVERY_STATUS(doc.id),
               );
 
               if (deliveryStatus.success) {
@@ -669,13 +669,13 @@ const TripDashboard: React.FC = () => {
             } catch (error) {
               console.error(
                 `Failed to fetch delivery status for ${doc.id}:`,
-                error
+                error,
               );
             }
           }
 
           return { doc, deliveryStatus: null as DeliveryStatusResponse | null };
-        })
+        }),
       );
 
       const carouselId = `doc-carousel-${sanitizeDomId(markerData.id)}`;
@@ -713,7 +713,7 @@ const TripDashboard: React.FC = () => {
                 <p style="margin: 4px 0; color: #333; font-size: 14px;">
                   <strong>Status:</strong> 
                   <span style="color: ${getDocStatusColor(
-                    doc.status
+                    doc.status,
                   )}; font-weight: bold;">
                     ${statusText}
                   </span>
@@ -827,7 +827,7 @@ const TripDashboard: React.FC = () => {
       if (!windowAny.copyToClipboard) {
         windowAny.copyToClipboard = (inputId: string) => {
           const input = document.getElementById(
-            inputId
+            inputId,
           ) as HTMLInputElement | null;
           if (input) {
             input.select();
@@ -857,10 +857,10 @@ const TripDashboard: React.FC = () => {
               total > 0 ? `Doc 1 of ${total}` : "No documents";
           }
           const prevButton = document.getElementById(
-            `${carouselId}-prev`
+            `${carouselId}-prev`,
           ) as HTMLButtonElement | null;
           const nextButton = document.getElementById(
-            `${carouselId}-next`
+            `${carouselId}-next`,
           ) as HTMLButtonElement | null;
           const shouldDisable = total <= 1;
           if (prevButton) {
@@ -877,7 +877,7 @@ const TripDashboard: React.FC = () => {
       if (!windowAny.navigateDocCarousel) {
         windowAny.navigateDocCarousel = (
           carouselId: string,
-          direction: number
+          direction: number,
         ) => {
           const state = windowAny.docCarouselState?.[carouselId];
           if (!state || state.total <= 1) {
@@ -912,7 +912,7 @@ const TripDashboard: React.FC = () => {
         windowAny.initDocCarousel(carouselId, docsWithDetails.length);
       }, 50);
     },
-    [get]
+    [get],
   );
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -973,7 +973,7 @@ const TripDashboard: React.FC = () => {
       setForceEndDialogOpen(false);
       setTripToForceEnd(null);
       setSuccessMessage(
-        "Trip has been force ended successfully. All pending deliveries have been marked as undelivered."
+        "Trip has been force ended successfully. All pending deliveries have been marked as undelivered.",
       );
       // Deselect the trip
       setSelectedTripId(null);
@@ -994,14 +994,14 @@ const TripDashboard: React.FC = () => {
 
       if (data.docStatus === DocStatus.READY_FOR_DISPATCH) {
         setDocSearchError(
-          "Document was scanned but not scheduled on a trip yet."
+          "Document was scanned but not scheduled on a trip yet.",
         );
         return;
       }
 
       if (data.docStatus === DocStatus.AT_TRANSIT_HUB) {
         setDocSearchError(
-          "Document is at a transit hub and not scheduled on the next trip yet."
+          "Document is at a transit hub and not scheduled on the next trip yet.",
         );
         return;
       }
@@ -1024,7 +1024,7 @@ const TripDashboard: React.FC = () => {
 
         // Show success message
         setDocSearchSuccessMessage(
-          `Doc found in Trip #${data.tripId}. Trip selected.`
+          `Doc found in Trip #${data.tripId}. Trip selected.`,
         );
       }
     },
@@ -1055,7 +1055,7 @@ const TripDashboard: React.FC = () => {
         setSelectedTripId(tripId);
       }
     },
-    [selectedTripId]
+    [selectedTripId],
   );
 
   // Handle force end trip click
@@ -1109,12 +1109,12 @@ const TripDashboard: React.FC = () => {
     // Check if we have ongoing trips (STARTED status)
     const ongoingTrips =
       allTripsData?.trips?.filter(
-        (trip) => trip.status === TripStatus.STARTED
+        (trip) => trip.status === TripStatus.STARTED,
       ) || [];
 
     // Check if user has already seen guidance in this session
     const hasSeenGuidanceInSession = sessionStorage.getItem(
-      "tripDashboardGuidanceSeen"
+      "tripDashboardGuidanceSeen",
     );
 
     if (
@@ -1181,38 +1181,48 @@ const TripDashboard: React.FC = () => {
     }
   };
 
-  // Calculate delivery statistics for selected trip
+  // Calculate delivery statistics for selected trip (by customer via doc.customerId)
   const getTripSummary = () => {
     if (!selectedTrip?.docGroups) return null;
 
-    let totalDeliveries = 0;
-    let completedDeliveries = 0;
-    let failedDeliveries = 0;
-    let pendingDeliveries = 0;
-
+    const directDocsByCustomer = new Map<
+      string,
+      (typeof selectedTrip.docGroups)[0]["docs"]
+    >();
     selectedTrip.docGroups.forEach((docGroup) => {
       docGroup.docs.forEach((doc) => {
-        // Only count direct deliveries (documents without a lot)
         if (!doc.lot) {
-          totalDeliveries++;
-          switch (doc.status) {
-            case DocStatus.DELIVERED:
-              completedDeliveries++;
-              break;
-            case DocStatus.UNDELIVERED:
-              failedDeliveries++;
-              break;
-            default:
-              pendingDeliveries++;
-              break;
-          }
+          const list = directDocsByCustomer.get(doc.customerId) ?? [];
+          list.push(doc);
+          directDocsByCustomer.set(doc.customerId, list);
         }
       });
     });
 
+    const totalDeliveries = directDocsByCustomer.size;
+    let completedDeliveries = 0;
+    let failedDeliveries = 0;
+    let pendingDeliveries = 0;
+
+    directDocsByCustomer.forEach((docs) => {
+      const allDelivered = docs.every(
+        (doc) => doc.status === DocStatus.DELIVERED,
+      );
+      const hasFailed = docs.some(
+        (doc) => doc.status === DocStatus.UNDELIVERED,
+      );
+      if (allDelivered) {
+        completedDeliveries++;
+      } else if (hasFailed) {
+        failedDeliveries++;
+      } else {
+        pendingDeliveries++;
+      }
+    });
+
     // Calculate dropoffs pending (doc groups where showDropOffButton is true)
     const dropoffsPending = selectedTrip.docGroups.filter(
-      (docGroup) => docGroup.showDropOffButton
+      (docGroup) => docGroup.showDropOffButton,
     ).length;
 
     // Calculate trip time elapsed since start (for STARTED and ENDED trips only)
@@ -1235,7 +1245,7 @@ const TripDashboard: React.FC = () => {
       const durationMs = endTime.getTime() - tripStartTime.getTime();
       const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
       const durationMinutes = Math.floor(
-        (durationMs % (1000 * 60 * 60)) / (1000 * 60)
+        (durationMs % (1000 * 60 * 60)) / (1000 * 60),
       );
 
       duration = `${durationHours}h ${durationMinutes}m`;
@@ -1323,7 +1333,7 @@ const TripDashboard: React.FC = () => {
 
     const pickHigherPriorityStatus = (
       current?: DocStatus,
-      candidate?: DocStatus
+      candidate?: DocStatus,
     ): DocStatus | undefined => {
       if (!candidate) {
         return current;
@@ -1364,7 +1374,7 @@ const TripDashboard: React.FC = () => {
             ];
             existingMarker.status = pickHigherPriorityStatus(
               existingMarker.status,
-              doc.status
+              doc.status,
             );
           } else {
             customerMarkersMap.set(key, {
@@ -1426,7 +1436,7 @@ const TripDashboard: React.FC = () => {
             if (tripCardsScrollRef.current) {
               const selectedCardElement =
                 tripCardsScrollRef.current.querySelector(
-                  `[data-trip-id="${selectedTripId}"]`
+                  `[data-trip-id="${selectedTripId}"]`,
                 ) as HTMLElement;
 
               if (selectedCardElement) {
@@ -1444,7 +1454,7 @@ const TripDashboard: React.FC = () => {
         }
 
         const selectedCardElement = tripCardsScrollRef.current?.querySelector(
-          `[data-trip-id="${selectedTripId}"]`
+          `[data-trip-id="${selectedTripId}"]`,
         ) as HTMLElement;
 
         if (selectedCardElement) {
@@ -1830,7 +1840,7 @@ const TripDashboard: React.FC = () => {
                       variant={isMobile ? "caption" : "body2"}
                       color="text.secondary"
                     >
-                      Total Direct Deliveries:
+                      Total Customers:
                     </Typography>
                     <Typography
                       variant={isMobile ? "caption" : "body2"}
