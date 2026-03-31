@@ -181,4 +181,4 @@ Edit `src/config/environment.js` to modify:
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License..
