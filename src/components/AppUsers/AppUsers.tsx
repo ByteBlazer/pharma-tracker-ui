@@ -28,6 +28,7 @@ import {
   ToggleButton,
   InputAdornment,
   IconButton,
+  FormControlLabel,
 } from "@mui/material";
 import {
   CheckCircle,
@@ -65,6 +66,7 @@ function AppUsers() {
     baseLocationId: "",
     vehicleNbr: "",
     roles: [] as string[],
+    isActive: true,
   });
   const [formErrors, setFormErrors] = useState({
     personName: false,
@@ -83,6 +85,7 @@ function AppUsers() {
     message: "",
   });
   const [searchTerm, setSearchTerm] = useState("");
+  const [hideInactiveUsers, setHideInactiveUsers] = useState(true);
 
   // Fetch users using TanStack React Query with JWT token
   const {
@@ -170,6 +173,7 @@ function AppUsers() {
       baseLocationId: user.baseLocationId,
       vehicleNbr: user.vehicleNbr,
       roles: user.roles.map((role) => role.roleName),
+      isActive: user.isActive,
     });
   };
 
@@ -218,9 +222,10 @@ function AppUsers() {
         userId: editingUser.id,
       });
     } else if (isAddingUser) {
-      // Create new user
+      // Create new user — omit isActive; new users are active by default on the server
+      const { isActive: _isActive, ...createPayload } = editForm;
       userMutation.mutate({
-        userData: editForm,
+        userData: createPayload,
         isUpdate: false,
       });
     }
@@ -236,6 +241,7 @@ function AppUsers() {
       baseLocationId: "",
       vehicleNbr: "",
       roles: [],
+      isActive: true,
     });
     setFormErrors({
       personName: false,
@@ -277,6 +283,10 @@ function AppUsers() {
   const filteredAndSortedUsers = users
     ? [...users]
         .filter((user) => {
+          if (hideInactiveUsers && !user.isActive) {
+            return false;
+          }
+
           if (!searchTerm) return true;
 
           const searchLower = searchTerm.toLowerCase();
@@ -368,6 +378,7 @@ function AppUsers() {
               baseLocationId: "",
               vehicleNbr: "",
               roles: [],
+              isActive: true,
             });
             setFormErrors({
               personName: false,
@@ -572,6 +583,19 @@ function AppUsers() {
         </Table>
       </TableContainer>
 
+      <Box sx={{ mt: 1, display: "flex", justifyContent: "flex-start" }}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={hideInactiveUsers}
+              onChange={(e) => setHideInactiveUsers(e.target.checked)}
+              color="primary"
+            />
+          }
+          label="Hide Inactive Users"
+        />
+      </Box>
+
       {/* Add/Edit User Dialog */}
       <Dialog
         open={!!editingUser || isAddingUser}
@@ -725,6 +749,21 @@ function AppUsers() {
                 ))}
               </Select>
             </FormControl>
+            {editingUser && (
+              <FormControl fullWidth>
+                <InputLabel>Active</InputLabel>
+                <Select
+                  label="Active"
+                  value={editForm.isActive ? "yes" : "no"}
+                  onChange={(e) =>
+                    handleFormChange("isActive", e.target.value === "yes")
+                  }
+                >
+                  <MenuItem value="yes">Yes</MenuItem>
+                  <MenuItem value="no">No</MenuItem>
+                </Select>
+              </FormControl>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
