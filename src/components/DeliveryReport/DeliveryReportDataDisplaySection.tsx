@@ -149,6 +149,7 @@ const DeliveryReportDataDisplaySection: React.FC<
       "City": row.city || "",
       "Status": statusLabel(row.status),
       "Signature Timestamp": formatSignatureTimestamp(row),
+      "Comment": row.comment || "",
       "Trip ID": row.tripId,
       "Route": row.route || "",
       "Trip Creator Name": row.createdByPersonName || "",
@@ -156,7 +157,6 @@ const DeliveryReportDataDisplaySection: React.FC<
       "Driver": row.driverName || "",
       "Vehicle": row.vehicleNbr || "",
       "Origin Warehouse": row.originWarehouse || "",
-      "Comment": row.comment || "",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -232,6 +232,17 @@ const DeliveryReportDataDisplaySection: React.FC<
               </Link>
             )}
           </Box>
+        </TableCell>
+        <TableCell
+          sx={{
+            maxWidth: 240,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+          title={row.comment || ""}
+        >
+          {row.comment || "-"}
         </TableCell>
         <TableCell>{row.tripId}</TableCell>
         <TableCell>{row.route || "-"}</TableCell>
@@ -399,6 +410,17 @@ const DeliveryReportDataDisplaySection: React.FC<
                         }}
                       >
                         <strong>Status</strong>
+                      </TableCell>
+                      <TableCell
+                        sx={{
+                          position: "sticky",
+                          top: 0,
+                          backgroundColor: "background.paper",
+                          zIndex: 10,
+                          boxShadow: "0 2px 2px -1px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        <strong>Comment</strong>
                       </TableCell>
                       <TableCell
                         sx={{
