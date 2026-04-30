@@ -235,14 +235,14 @@ const DeliveryReportDataDisplaySection: React.FC<
         </TableCell>
         <TableCell
           sx={{
-            maxWidth: 240,
+            maxWidth: 150,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
           }}
           title={row.comment || ""}
         >
-          {row.comment || "-"}
+          {row.comment || ""}
         </TableCell>
         <TableCell>{row.tripId}</TableCell>
         <TableCell>{row.route || "-"}</TableCell>
