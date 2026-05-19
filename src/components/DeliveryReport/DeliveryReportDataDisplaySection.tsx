@@ -131,9 +131,13 @@ const DeliveryReportDataDisplaySection: React.FC<
   const handleDownloadExcel = React.useCallback(() => {
     if (!reportData?.data?.length) return;
 
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
     const formatSignatureTimestamp = (row: DeliveryReportItem): string => {
       if (row.status === DocStatus.DELIVERED && row.lastUpdatedAt) {
-        return formatDateTime(row.lastUpdatedAt);
+        const date = new Date(row.lastUpdatedAt);
+        const adjusted = new Date(date.getTime() - IST_OFFSET_MS);
+        return formatDateTime(adjusted.toISOString());
       }
       return "";
     };
